@@ -1,0 +1,89 @@
+# Supabase pauses free projects after 7 days with no activity. This pings the database
+# once a day so that never happens.
+#
+# GitHub also disables scheduled workflows in repositories with no activity for 60 days,
+# which would quietly kill this job. To avoid that, the run commits a heartbeat file
+# roughly once a month, which counts as repository activity and resets that timer.
+
+name: Supabase keepalive
+
+on:
+  schedule:
+    # 06:17 UTC daily. Off-the-hour on purpose: GitHub's scheduler is busiest at :00
+    # and delays runs there.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ping the database
+        run: |
+          set -euo pipefail
+
+          # Read the credentials from js/config.js so there is only one place to
+          # update them if the project or key ever changes.
+          URL=$(sed -n "s/^export const SUPABASE_URL = '\(.*\)';$/\1/p" js/config.js)
+          KEY=$(sed -n "s/^export const SUPABASE_ANON_KEY = '\(.*\)';$/\1/p" js/config.js)
+
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "Could not read Supabase config from js/config.js"
+            exit 1
+          fi
+
+          echo "Pinging ${URL}"
+
+          # A plain authenticated read. RLS returns an empty array for the anon role,
+          # which is all we need: the request itself is the activity.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "${URL}/rest/v1/habits?select=id&limit=1" \
+            -H "apikey: ${KEY}" \
+            -H "Authorization: Bearer ${KEY}")
+
+          echo "HTTP ${code}"
+
+          # 200 = awake and answering. Anything else means the project is paused,
+          # deleted, or the key changed — all worth an email from GitHub.
+          if [ "$code" != "200" ]; then
+            echo "Database did not respond normally. Check the Supabase dashboard:"
+            echo "the project may be paused and need a manual Restore."
+            exit 1
+          fi
+
+      - name: Refresh the heartbeat every ~25 days
+        run: |
+          set -euo pipefail
+
+          FILE=.github/keepalive-heartbeat
+          NOW=$(date +%s)
+          LAST=$(awk 'NR==1 {print $1}' "$FILE" 2>/dev/null || true)
+          [ -z "${LAST:-}" ] && LAST=0
+
+          AGE_DAYS=$(( (NOW - LAST) / 86400 ))
+          echo "Heartbeat is ${AGE_DAYS} days old"
+
+          # Well inside GitHub's 60-day window, so a single failed run cannot
+          # let the deadline slip past.
+          if [ "$AGE_DAYS" -lt 25 ]; then
+            echo "Fresh enough, nothing to commit."
+            exit 0
+          fi
+
+          mkdir -p .github
+          echo "$NOW $(date -u -d "@$NOW" +%Y-%m-%dT%H:%M:%SZ)" > "$FILE"
+
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add "$FILE"
+          git commit -m 'chore: keepalive heartbeat'
+          git push

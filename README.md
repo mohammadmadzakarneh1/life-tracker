@@ -52,6 +52,19 @@ On your phone, open that URL and use **Add to Home Screen** to install it as an 
 | `supabase/schema.sql` | Tables, indexes and RLS policies |
 | `sw.js` | Service worker — offline shell |
 
+## Keeping the database awake
+
+Supabase pauses free projects after 7 days of inactivity, and a paused project means logins
+fail until you press **Restore** in the dashboard. `.github/workflows/keepalive.yml` pings the
+database every day at 06:17 UTC so that never happens.
+
+GitHub disables scheduled workflows in repos with no activity for 60 days, which would silently
+stop the pings — so the same job commits a heartbeat file every ~25 days, which counts as
+activity and resets that timer. The workflow fails loudly (and GitHub emails you) if the
+database ever answers with anything other than `200`.
+
+You can run it by hand any time from **Actions → Supabase keepalive → Run workflow**.
+
 ## Notes for later
 
 - **Adding a tab**: create `js/views/thing.js` exporting `render` and `destroy`, add it to
