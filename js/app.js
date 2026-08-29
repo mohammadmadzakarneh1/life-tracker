@@ -6,6 +6,8 @@ import { clear, el, toast } from './ui.js';
 
 const ROUTES = {
   dashboard: { title: 'Today', load: () => import('./views/dashboard.js') },
+  tasks: { title: 'Tasks', load: () => import('./views/tasks.js') },
+  calendar: { title: 'Calendar', load: () => import('./views/calendar.js') },
   habits: { title: 'Habits', load: () => import('./views/habits.js') },
   mood: { title: 'Mood', load: () => import('./views/mood.js') },
   workouts: { title: 'Fitness', load: () => import('./views/workouts.js') },

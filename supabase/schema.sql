@@ -58,6 +58,29 @@ create table if not exists public.workout_sets (
   weight_kg  numeric(6, 2)
 );
 
+create table if not exists public.tasks (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  title        text not null check (char_length(title) between 1 and 200),
+  -- Null means "someday": a task with no deadline. Dated tasks appear on the calendar.
+  due_date     date,
+  done         boolean not null default false,
+  completed_at timestamptz,
+  notes        text,
+  created_at   timestamptz not null default now()
+);
+
+create table if not exists public.events (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  title      text not null check (char_length(title) between 1 and 200),
+  date       date not null,
+  -- Null for all-day appointments.
+  time       time,
+  note       text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.expenses (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references auth.users (id) on delete cascade,
@@ -80,6 +103,8 @@ create index if not exists mood_user_date        on public.mood_entries (user_id
 create index if not exists workouts_user_date    on public.workouts (user_id, date);
 create index if not exists workout_sets_workout  on public.workout_sets (workout_id);
 create index if not exists expenses_user_date    on public.expenses (user_id, date);
+create index if not exists tasks_user_due        on public.tasks (user_id, due_date);
+create index if not exists events_user_date      on public.events (user_id, date);
 
 -- ============================================================
 -- Row Level Security
@@ -95,12 +120,15 @@ alter table public.mood_entries enable row level security;
 alter table public.workouts     enable row level security;
 alter table public.workout_sets enable row level security;
 alter table public.expenses     enable row level security;
+alter table public.tasks        enable row level security;
+alter table public.events       enable row level security;
 
 do $$
 declare t text;
 begin
   foreach t in array array[
-    'habits', 'habit_logs', 'mood_entries', 'workouts', 'workout_sets', 'expenses'
+    'habits', 'habit_logs', 'mood_entries', 'workouts', 'workout_sets', 'expenses',
+    'tasks', 'events'
   ]
   loop
     execute format('drop policy if exists "own rows select" on public.%I', t);

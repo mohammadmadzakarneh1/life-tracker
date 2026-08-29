@@ -1,6 +1,6 @@
 // Offline shell. Bump CACHE when you change any file below, otherwise browsers
 // that already installed the app keep serving the old copy.
-const CACHE = 'life-tracker-v1';
+const CACHE = 'life-tracker-v2';
 
 const SHELL = [
   './',
@@ -12,6 +12,8 @@ const SHELL = [
   'js/db.js',
   'js/ui.js',
   'js/views/dashboard.js',
+  'js/views/tasks.js',
+  'js/views/calendar.js',
   'js/views/habits.js',
   'js/views/mood.js',
   'js/views/workouts.js',

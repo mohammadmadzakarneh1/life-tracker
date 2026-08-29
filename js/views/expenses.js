@@ -13,7 +13,8 @@ const CATEGORIES = [
 
 let container = null;
 let month = todayISO().slice(0, 7); // YYYY-MM
-let rows = [];
+let rows = [];      // entries in the selected month
+let allRows = [];   // every entry ever, for the running balance
 
 export async function render(root) {
   container = root;
@@ -42,9 +43,11 @@ async function load() {
   clear(container).append(loading());
   try {
     const [from, to] = bounds(month);
-    rows = await expenses.range(from, to);
+    [rows, allRows] = await Promise.all([expenses.range(from, to), expenses.allTime()]);
+    if (!container) return;
     draw();
   } catch (err) {
+    if (!container) return;
     clear(container).append(
       el('div.card', {}, [
         el('h2', { text: 'Could not load expenses' }),
@@ -60,7 +63,12 @@ function draw() {
   const income = sum(rows.filter((r) => r.kind === 'income'));
   const spent = sum(rows.filter((r) => r.kind === 'expense'));
   const net = income - spent;
-  const currency = rows[0]?.currency ?? 'USD';
+  const currency = allRows[0]?.currency ?? rows[0]?.currency ?? 'USD';
+
+  // Running total across every month — "what I actually have".
+  const receivedEver = sum(allRows.filter((r) => r.kind === 'income'));
+  const spentEver = sum(allRows.filter((r) => r.kind === 'expense'));
+  const balance = receivedEver - spentEver;
 
   const [y, m] = month.split('-').map(Number);
   const label = new Date(y, m - 1, 1).toLocaleDateString(undefined, {
@@ -69,6 +77,17 @@ function draw() {
   });
 
   container.append(
+    el('div.card', {}, [
+      el('div.stat-label', { text: 'Balance' }),
+      el('div.balance', {
+        text: money(balance, currency),
+        style: `color:${balance >= 0 ? 'var(--text)' : 'var(--bad)'}`,
+      }),
+      el('div.stat-sub', {
+        text: `${money(receivedEver, currency)} received · ${money(spentEver, currency)} spent, all time`,
+      }),
+    ]),
+
     el('div.card', {}, [
       el('div.card-head', { style: 'margin-bottom:0' }, [
         el('button.icon-btn', {
@@ -86,7 +105,7 @@ function draw() {
     ]),
 
     el('div.stat-grid', {}, [
-      stat('Income', money(income, currency)),
+      stat('Received', money(income, currency), 'var(--good)'),
       stat('Spent', money(spent, currency)),
       stat('Net', money(net, currency), net >= 0 ? 'var(--good)' : 'var(--bad)'),
     ])
@@ -168,8 +187,8 @@ function entryRow(r) {
 
 function entryForm(existing = null) {
   const kindSel = el('select', { name: 'kind' }, [
-    el('option', { value: 'expense', text: 'Expense', selected: existing?.kind !== 'income' }),
-    el('option', { value: 'income', text: 'Income', selected: existing?.kind === 'income' }),
+    el('option', { value: 'expense', text: 'Money spent', selected: existing?.kind !== 'income' }),
+    el('option', { value: 'income', text: 'Money received', selected: existing?.kind === 'income' }),
   ]);
 
   const catSel = el(

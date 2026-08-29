@@ -180,6 +180,97 @@ export const workouts = {
   },
 };
 
+/* ---------------- tasks ---------------- */
+
+export const tasks = {
+  /** Everything not yet done, plus anything completed recently enough to still be visible. */
+  async list() {
+    return unwrap(
+      await supabase
+        .from('tasks')
+        .select('*')
+        // Undated tasks sort last; nullsFirst:false keeps "someday" below real deadlines.
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+    );
+  },
+
+  /** Tasks with a deadline inside [from, to] — what the calendar draws dots from. */
+  async range(from, to) {
+    return unwrap(
+      await supabase
+        .from('tasks')
+        .select('*')
+        .gte('due_date', from)
+        .lte('due_date', to)
+        .order('due_date', { ascending: true })
+    );
+  },
+
+  async create({ title, due_date = null, notes = null }) {
+    const rows = unwrap(
+      await supabase
+        .from('tasks')
+        .insert({ user_id: await uid(), title, due_date, notes })
+        .select()
+    );
+    return rows[0];
+  },
+
+  async update(id, patch) {
+    return unwrap(await supabase.from('tasks').update(patch).eq('id', id).select());
+  },
+
+  /** completed_at is stamped alongside `done` so "finished today" stays answerable. */
+  async setDone(id, done) {
+    return unwrap(
+      await supabase
+        .from('tasks')
+        .update({ done, completed_at: done ? new Date().toISOString() : null })
+        .eq('id', id)
+        .select()
+    );
+  },
+
+  async remove(id) {
+    return unwrap(await supabase.from('tasks').delete().eq('id', id));
+  },
+};
+
+/* ---------------- events (appointments) ---------------- */
+
+export const events = {
+  async range(from, to) {
+    return unwrap(
+      await supabase
+        .from('events')
+        .select('*')
+        .gte('date', from)
+        .lte('date', to)
+        .order('date', { ascending: true })
+        .order('time', { ascending: true, nullsFirst: true })
+    );
+  },
+
+  async create({ title, date, time = null, note = null }) {
+    const rows = unwrap(
+      await supabase
+        .from('events')
+        .insert({ user_id: await uid(), title, date, time, note })
+        .select()
+    );
+    return rows[0];
+  },
+
+  async update(id, patch) {
+    return unwrap(await supabase.from('events').update(patch).eq('id', id).select());
+  },
+
+  async remove(id) {
+    return unwrap(await supabase.from('events').delete().eq('id', id));
+  },
+};
+
 /* ---------------- expenses ---------------- */
 
 export const expenses = {
@@ -192,6 +283,14 @@ export const expenses = {
         .lte('date', to)
         .order('date', { ascending: false })
     );
+  },
+
+  /**
+   * Every entry ever, trimmed to the three columns the balance needs. Personal-scale
+   * data, so summing client-side is cheaper than adding a database view for it.
+   */
+  async allTime() {
+    return unwrap(await supabase.from('expenses').select('amount, kind, currency'));
   },
 
   async create({ date, amount, kind, category, note, currency = 'USD' }) {
