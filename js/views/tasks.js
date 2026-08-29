@@ -110,9 +110,13 @@ function draw() {
           text: `${showDone ? 'Hide' : 'Show'} completed (${buckets.done.length})`,
           onclick: () => { showDone = !showDone; draw(); },
         }),
-      ]),
-      showDone && el('div.card', {}, buckets.done.map((t) => taskRow(t, today)))
+      ])
     );
+    // `container.append(showDone && node)` would append the literal string "false"
+    // when collapsed — Node.append() stringifies non-Node values.
+    if (showDone) {
+      container.append(el('div.card', {}, buckets.done.map((t) => taskRow(t, today))));
+    }
   }
 
   container.append(addButton());
