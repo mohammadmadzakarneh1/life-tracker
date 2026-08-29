@@ -1,6 +1,14 @@
-// Offline shell. Bump CACHE when you change any file below, otherwise browsers
-// that already installed the app keep serving the old copy.
-const CACHE = 'life-tracker-v2';
+// Offline shell.
+//
+// Code (HTML/JS/CSS/manifest) is network-first: a deploy must never leave a browser
+// running yesterday's JavaScript against today's HTML. That mismatch is not
+// theoretical — a cache-first version of this file shipped new tabs whose routes
+// lived in a cached older app.js, so tapping them did nothing.
+//
+// Only genuinely static assets (icons) are cache-first. The cache still exists so
+// the app opens offline; it is just no longer allowed to win a race against the
+// network when the network is available.
+const CACHE = 'life-tracker-v3';
 
 const SHELL = [
   './',
@@ -50,21 +58,31 @@ self.addEventListener('fetch', (e) => {
   if (request.method !== 'GET') return;
   if (new URL(request.url).origin !== self.location.origin) return;
 
-  // Navigations: network first so a redeploy is picked up, cache as the offline fallback.
-  if (request.mode === 'navigate') {
+  const url = new URL(request.url);
+
+  // Navigations and app code: network first, cache only as the offline fallback.
+  const isCode = /\.(js|css|html|webmanifest)$/.test(url.pathname);
+
+  if (request.mode === 'navigate' || isCode) {
     e.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(request, copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
           return res;
         })
-        .catch(() => caches.match(request).then((r) => r ?? caches.match('index.html')))
+        .catch(() =>
+          caches.match(request).then((r) =>
+            r ?? (request.mode === 'navigate' ? caches.match('index.html') : undefined)
+          )
+        )
     );
     return;
   }
 
-  // Static assets: cache first, refresh in the background.
+  // Icons and other immutable assets: cache first, refreshed in the background.
   e.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)
