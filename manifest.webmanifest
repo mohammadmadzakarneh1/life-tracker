@@ -1,7 +1,7 @@
 {
   "name": "Life Tracker",
   "short_name": "Life",
-  "description": "Habits, mood, workouts and money — synced across your devices.",
+  "description": "Habits, tasks, appointments and money — synced across your devices.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

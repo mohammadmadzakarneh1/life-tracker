@@ -1,13 +1,12 @@
-// Today at a glance, pulled from all four trackers.
+// Today at a glance, pulled from habits, tasks, appointments and money.
 
-import { habits, habitLogs, mood, workouts, expenses } from '../db.js';
-import { FACES, LABELS } from './mood.js';
+import { habits, habitLogs, tasks, events, expenses } from '../db.js';
 import {
   el, clear, toast, loading,
   todayISO, addDays, dateRange, prettyDate, money,
 } from '../ui.js';
 
-const WINDOW = 30; // days of history behind the sparklines
+const WINDOW = 30; // days of history behind the sparkline
 
 let container = null;
 
@@ -27,17 +26,17 @@ async function load() {
   const from = addDays(today, -(WINDOW - 1));
 
   try {
-    const [habitList, logs, moods, sessions, spend] = await Promise.all([
+    const [habitList, logs, taskList, todayEvents, spend] = await Promise.all([
       habits.list(),
       habitLogs.range(from, today),
-      mood.range(from, today),
-      workouts.range(from, today),
+      tasks.list(),
+      events.range(today, today),
       expenses.range(today.slice(0, 8) + '01', today),
     ]);
 
     // Guard against a view swap while the requests were in flight.
     if (!container) return;
-    draw({ today, from, habitList, logs, moods, sessions, spend });
+    draw({ today, from, habitList, logs, taskList, todayEvents, spend });
   } catch (err) {
     if (!container) return;
     clear(container).append(
@@ -50,13 +49,15 @@ async function load() {
   }
 }
 
-function draw({ today, from, habitList, logs, moods, sessions, spend }) {
+function draw({ today, from, habitList, logs, taskList, todayEvents, spend }) {
   clear(container);
 
   const doneKeys = new Set(logs.filter((l) => l.done).map((l) => `${l.habit_id}|${l.date}`));
   const doneToday = habitList.filter((h) => doneKeys.has(`${h.id}|${today}`)).length;
-  const moodToday = moods.find((m) => m.date === today) ?? null;
-  const workedOutToday = sessions.some((w) => w.date === today);
+
+  const openTasks = taskList.filter((t) => !t.done);
+  const overdue = openTasks.filter((t) => t.due_date && t.due_date < today);
+  const dueToday = openTasks.filter((t) => t.due_date === today);
 
   const spent = spend
     .filter((r) => r.kind === 'expense')
@@ -75,13 +76,38 @@ function draw({ today, from, habitList, logs, moods, sessions, spend }) {
     el('div.stat-grid', {}, [
       stat('Habits', habitList.length ? `${doneToday}/${habitList.length}` : '—',
         habitList.length ? (doneToday === habitList.length ? 'All done' : 'done today') : 'none yet'),
-      stat('Mood', moodToday ? FACES[moodToday.score] : '—',
-        moodToday ? LABELS[moodToday.score] : 'not logged'),
-      stat('Fitness', workedOutToday ? '✓' : '—',
-        workedOutToday ? 'trained today' : 'rest day'),
+      stat('Tasks', String(openTasks.length),
+        overdue.length ? `${overdue.length} overdue` : 'nothing overdue',
+        overdue.length ? 'var(--bad)' : null),
+      stat('Due today', String(dueToday.length), dueToday.length === 1 ? 'task' : 'tasks'),
       stat('This month', money(income - spent, currency), 'net'),
     ])
   );
+
+  // Today's appointments
+  if (todayEvents.length) {
+    container.append(
+      el('div.section-title', { text: 'Today' }),
+      el('div.card', {}, todayEvents.map((e) =>
+        el('div.row', {}, [
+          el('span.cal-time', { text: e.time ? e.time.slice(0, 5) : 'All day' }),
+          el('div.row-main', {}, [
+            el('div.row-title', { text: e.title }),
+            e.note && el('div.row-sub', { text: e.note }),
+          ]),
+        ])
+      ))
+    );
+  }
+
+  // Tasks needing attention: overdue first, then due today
+  const attention = [...overdue, ...dueToday];
+  if (attention.length) {
+    container.append(
+      el('div.section-title', { text: 'Needs doing' }),
+      el('div.card', {}, attention.map((t) => taskRow(t, today)))
+    );
+  }
 
   // Habits still open today
   if (habitList.length) {
@@ -92,10 +118,8 @@ function draw({ today, from, habitList, logs, moods, sessions, spend }) {
         ? remaining.map((h) => habitRow(h, today, doneKeys))
         : [el('p', { text: '✓ Everything done today. Nice.', style: 'margin:0' })])
     );
-  }
 
-  // 30-day habit completion trend
-  if (habitList.length) {
+    // 30-day habit completion trend
     const days = dateRange(from, today);
     const values = days.map(
       (d) => habitList.filter((h) => doneKeys.has(`${h.id}|${d}`)).length / habitList.length
@@ -117,13 +141,13 @@ function draw({ today, from, habitList, logs, moods, sessions, spend }) {
     );
   }
 
-  if (!habitList.length && !moods.length && !sessions.length && !spend.length) {
+  if (!habitList.length && !taskList.length && !todayEvents.length && !spend.length) {
     container.append(
       el('div.card', {}, [
         el('h2', { text: 'Welcome 👋' }),
         el('p.muted', {
           style: 'margin:9px 0 14px;font-size:13.5px',
-          text: 'Nothing logged yet. Start with a habit — the other tabs work the same way.',
+          text: 'Nothing logged yet. Start with a habit or a task — the other tabs work the same way.',
         }),
         el('a.btn.btn-primary', { href: '#/habits', text: 'Add your first habit' }),
       ])
@@ -131,11 +155,41 @@ function draw({ today, from, habitList, logs, moods, sessions, spend }) {
   }
 }
 
-function stat(label, value, sub) {
+function stat(label, value, sub, color) {
   return el('div.stat', {}, [
     el('div.stat-label', { text: label }),
-    el('div.stat-value', { text: value }),
+    el('div.stat-value', { text: value, style: color ? `color:${color}` : '' }),
     el('div.stat-sub', { text: sub }),
+  ]);
+}
+
+function taskRow(t, today) {
+  const check = el('button.check', {
+    type: 'button',
+    text: '✓',
+    'aria-label': `Mark ${t.title}`,
+    onclick: async () => {
+      check.classList.add('is-done');
+      try {
+        await tasks.setDone(t.id, true);
+        await load();
+      } catch (err) {
+        check.classList.remove('is-done');
+        toast(err.message, 'bad');
+      }
+    },
+  });
+
+  const late = t.due_date && t.due_date < today;
+  return el('div.row', {}, [
+    check,
+    el('div.row-main', {}, [
+      el('div.row-title', { text: t.title }),
+      el('div.row-sub', {
+        text: late ? 'Overdue' : 'Due today',
+        style: late ? 'color:var(--bad)' : '',
+      }),
+    ]),
   ]);
 }
 

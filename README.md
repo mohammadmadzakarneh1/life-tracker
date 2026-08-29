@@ -1,6 +1,6 @@
 # Life Tracker
 
-A personal tracker for habits, mood, workouts and money. Plain HTML/CSS/JS — no build step,
+A personal tracker for habits, tasks, appointments and money. Plain HTML/CSS/JS — no build step,
 no framework, no `npm install`. Data lives in Supabase behind a login, so the same account
 shows the same data on every device.
 

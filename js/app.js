@@ -9,8 +9,6 @@ const ROUTES = {
   tasks: { title: 'Tasks', load: () => import('./views/tasks.js') },
   calendar: { title: 'Calendar', load: () => import('./views/calendar.js') },
   habits: { title: 'Habits', load: () => import('./views/habits.js') },
-  mood: { title: 'Mood', load: () => import('./views/mood.js') },
-  workouts: { title: 'Fitness', load: () => import('./views/workouts.js') },
   expenses: { title: 'Money', load: () => import('./views/expenses.js') },
 };
 

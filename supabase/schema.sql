@@ -27,37 +27,6 @@ create table if not exists public.habit_logs (
   unique (habit_id, date)
 );
 
-create table if not exists public.mood_entries (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null references auth.users (id) on delete cascade,
-  date       date not null,
-  score      int  not null check (score between 1 and 5),
-  note       text,
-  created_at timestamptz not null default now(),
-  -- One mood entry per day.
-  unique (user_id, date)
-);
-
-create table if not exists public.workouts (
-  id           uuid primary key default gen_random_uuid(),
-  user_id      uuid not null references auth.users (id) on delete cascade,
-  date         date not null,
-  type         text not null,
-  duration_min int check (duration_min between 0 and 1440),
-  notes        text,
-  created_at   timestamptz not null default now()
-);
-
-create table if not exists public.workout_sets (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null references auth.users (id) on delete cascade,
-  workout_id uuid not null references public.workouts (id) on delete cascade,
-  exercise   text not null,
-  sets       int,
-  reps       int,
-  weight_kg  numeric(6, 2)
-);
-
 create table if not exists public.tasks (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null references auth.users (id) on delete cascade,
@@ -99,9 +68,6 @@ create table if not exists public.expenses (
 
 create index if not exists habits_user_idx       on public.habits (user_id);
 create index if not exists habit_logs_user_date  on public.habit_logs (user_id, date);
-create index if not exists mood_user_date        on public.mood_entries (user_id, date);
-create index if not exists workouts_user_date    on public.workouts (user_id, date);
-create index if not exists workout_sets_workout  on public.workout_sets (workout_id);
 create index if not exists expenses_user_date    on public.expenses (user_id, date);
 create index if not exists tasks_user_due        on public.tasks (user_id, due_date);
 create index if not exists events_user_date      on public.events (user_id, date);
@@ -116,9 +82,6 @@ create index if not exists events_user_date      on public.events (user_id, date
 
 alter table public.habits       enable row level security;
 alter table public.habit_logs   enable row level security;
-alter table public.mood_entries enable row level security;
-alter table public.workouts     enable row level security;
-alter table public.workout_sets enable row level security;
 alter table public.expenses     enable row level security;
 alter table public.tasks        enable row level security;
 alter table public.events       enable row level security;
@@ -127,8 +90,7 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'habits', 'habit_logs', 'mood_entries', 'workouts', 'workout_sets', 'expenses',
-    'tasks', 'events'
+    'habits', 'habit_logs', 'expenses', 'tasks', 'events'
   ]
   loop
     execute format('drop policy if exists "own rows select" on public.%I', t);
