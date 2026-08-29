@@ -8,8 +8,8 @@
 // Never put the `service_role` key here. That one bypasses RLS and must stay secret.
 //
 // Find both values in your Supabase dashboard: Settings -> API.
-export const SUPABASE_URL = 'PASTE_YOUR_PROJECT_URL_HERE';
-export const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_PUBLIC_KEY_HERE';
+export const SUPABASE_URL = 'https://ntxdywfdhslioagtykvo.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50eGR5d2ZkaHNsaW9hZ3R5a3ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwMDIyNDIsImV4cCI6MjEwMzU3ODI0Mn0.aqWPVKpgVEHb3TklJGgvmrsl_pvvsZMz4Dp1Bb9U4pM';
 
 export const isConfigured =
   SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 40;
