@@ -225,8 +225,9 @@ budgets          id, user_id, month text 'YYYY-MM', amount numeric, currency,
                  unique (user_id, month)
 settings         user_id pk, display_name, currency default 'JOD', week_start smallint,
                  theme,
-                 prior_gpa numeric,      -- cumulative % before Life Tracker (64.6)
-                 prior_credits numeric,  -- credit hours that average covers
+                 prior_gpa numeric      default 64.6,  -- cumulative % before Life Tracker
+                 prior_credits numeric  default 27,    -- credit hours that average covers
+                 target_gpa numeric null,              -- optional; drives the 'needed' figure
                  updated_at
 ```
 
@@ -403,6 +404,40 @@ Only **completed** courses count. Courses in progress feed a separate, clearly l
 **projected GPA** using their current grades — that is the number worth seeing mid-semester,
 because it is the one you can still change. Both figures show their inputs in a "how is this
 calculated?" disclosure; a GPA you cannot check is one you will not trust.
+
+### 10.1a The actual baseline, and why it justifies the whole feature
+
+`prior_gpa = 64.6`, `prior_credits = 27`. With 16 credits registered, the record after this
+semester is 43 hours — meaning **this one semester is 37% of the entire transcript**.
+
+| This semester averages | Cumulative becomes | Change |
+|---|---|---|
+| 60% | 62.89% | −1.71 |
+| 65% | 64.75% | +0.15 |
+| 70% | 66.61% | +2.01 |
+| 75% | 68.47% | +3.87 |
+| 80% | 70.33% | +5.73 |
+| 85% | 72.19% | +7.59 |
+| 90% | 74.05% | +9.45 |
+
+And inverted — what a target requires:
+
+| Target cumulative | Needs this semester |
+|---|---|
+| 66% | 68.4% |
+| 68% | 73.7% |
+| 70% | 79.1% |
+| 72% | 84.5% |
+
+**This table is the single most motivating screen the app can show, and it should be built.** Not
+as decoration on Progress, but on the course/grades page: *"current projection 68.5% — 79.1%
+needed this semester for a 70 cumulative."* It converts an abstract worry into a number attached
+to the assessments actually in front of you, which is exactly the leverage a 37%-of-record
+semester deserves.
+
+Deliberately **not** a goal system, a streak, or a nag — one honest figure, updated as grades
+arrive. `settings.target_gpa` (optional) drives the second table; with no target set, only the
+projection shows.
 
 ### 10.2 Editing it every semester
 
@@ -635,9 +670,8 @@ README.md             architecture, migration workflow, test instructions
 
 ## 21. Open questions
 
-1. **Prior credit hours** — GPA is answered (§10.1: 100-point scale, credit-weighted, baseline
-   64.6). The one missing input is **how many credit hours that 64.6 covers**, without which the
-   cumulative figure cannot be carried forward. Everything else about GPA is settled.
+1. ~~**Prior credit hours**~~ — **answered: 64.6% over 27 credit hours.** GPA is fully specified;
+   see §10.1 and §10.3.
 2. **Recurring tasks** — weekly labs and readings are the obvious case. Deferred deliberately;
    recurrence is where task apps get complicated. Do you want it, and can it wait past Phase 11?
 3. **Notifications are excluded, but forgetting is your problem #1.** As specified, the app helps
