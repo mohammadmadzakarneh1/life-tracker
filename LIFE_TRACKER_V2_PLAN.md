@@ -621,12 +621,12 @@ Tracking all depend on it).
 | **0** | Migration restructure, `settings` table, test harness, nav shell (sidebar + bottom bar + More + router params) | Everything downstream needs additive migrations and a place to live |
 | **1** | Task model expansion + Tasks views + **Quick Add** | The spine of the app; Quick Add early because capture is the habit that matters |
 | **2** | **Today** rewrite: Next Action, today's tasks, schedule, habits, time placeholder | Earliest point the app becomes worth opening daily |
-| **3** | University: terms, courses, meetings, university work | Feeds Today and Calendar |
-| **4** | Grades | Self-contained; your stated primary motivation |
-| **5** | Projects | Reuses the task system; small once Phase 1 lands |
-| **6** | Time tracking: sessions, timer bar, summaries | Completes Today's last section |
-| **7** | Calendar: five sources, Week view | Needs courses and projects to exist first |
-| **8** | Money: budgets, categories, currency | Independent; can move earlier if you want it sooner |
+| **3** | **Projects** | Moved up: projects are running *now*, so the app is already behind reality. Small once Phase 1 lands, because it reuses the task system |
+| **4** | University: terms, courses, meetings, breaks, university work | Must land before 4 October so the timetable is entered on day one rather than retrofitted mid-semester |
+| **5** | Grades + GPA projection | Self-contained, and the stated primary motivation. Wanted early in term so assessments accumulate from the first quiz |
+| **6** | Time tracking: sessions, timer bar, summaries | Completes Today's last section, and is the commitment device for §C.3 |
+| **7** | Calendar: six sources, Week view | Needs courses and projects to exist first |
+| **8** | Money: budgets, categories, currency | Independent, and not currently tracked by hand, so no urgency |
 | **9** | Habits: schedules, weekly view | Small |
 | **10** | Progress | Depends on everything above |
 | **11** | Polish: responsive pass, Settings, export, accessibility, cleanup | Last |
@@ -865,3 +865,14 @@ What it means concretely:
    week cannot look productive on volume alone.
 
 This constraint outranks visual polish. If a design choice makes avoidance easier, it loses.
+
+### C.4 Build straight through, reviewed at the end
+
+Your call, and it is respected — I will not stop and wait between phases. One thing worth stating
+plainly rather than discovering later: the risk of building straight through is that the Today
+page's shape gets baked into the eight phases built on top of it, so a mismatch found at the end
+costs more to fix than one found on day three.
+
+Cheap mitigation applied without blocking you: **every phase deploys as it completes.** The live
+app is always current, so you can try Today the moment Phase 2 lands and redirect me then if it
+is wrong — you simply are not required to. That keeps the option open at no cost to speed.
