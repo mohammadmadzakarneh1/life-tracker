@@ -654,3 +654,51 @@ README.md             architecture, migration workflow, test instructions
    `settings.week_start` defaults to Sunday rather than Monday.
 5. **Money ordering** — Phase 8 is late. Move it earlier if you're tracking spending now.
 6. **Deleting versus archiving** — courses and projects accumulate. Archive is assumed; confirm.
+7. **When does the semester actually begin?** PSUT's public calendar says 4 October 2026, but the
+   registration below was described as "next week's schedule". Those disagree, and the term start
+   bounds every class block on the calendar. Which is right?
+
+---
+
+## Appendix A — Registered courses, First Semester 2026/2027
+
+From the portal registration screen (المواد المسجلة). **16 credit hours**, six courses. This is
+the seed data for Phase 3, and the shape it implies is what the model must support.
+
+| Code | Course | Cr | Sec | Instructor | Days | Time | Room |
+|---|---|---|---|---|---|---|---|
+| 22241 | تصميم المنطق الرقمي (Digital Logic Design) | 3 | 4 | أ.د. احمد الحياصات | Sun Tue Thu | 10:00–11:00 | 342 |
+| 20133 | رياضيات (2) لطلبة الهندسة (Maths 2 for Engineering) | 3 | 1 | د. ميساء خضر | Sun Tue Thu | 12:00–13:00 | 309 |
+| 11206 | البرمجة بالكينونية (Object-Oriented Programming) | 3 | 3 | هـ.ت. (TBA) | Mon Wed | 11:00–12:30 | 206 |
+| 11253 | مختبر البرمجة بالكينونية — Online (تزامن) | 1 | 7 | هـ.ت. (TBA) | Wed | 14:00–17:00 | Online |
+| 20134 | رياضيات متقطعة (1) — Blended (Discrete Maths) | 3 | 6 | رجاء القديرات | Wed | 12:30–14:00 | 342 |
+| 31351 | قضايا معاصرة في الوطن العربي — Blended | 3 | 2 | شهيناز عيسى | Mon | 9:30–11:00 | 343 |
+
+Weekly shape: Sun/Tue/Thu are light with a midday gap; Monday is two back-to-back sessions;
+**Wednesday runs 11:00–17:00 with no break.** Worth surfacing — the answer to "what should I do
+today?" is different on a Wednesday.
+
+### What this changes in the plan
+
+1. **`courses.section`** — add it. It is on every registration row and is what you check against
+   the portal; leaving it out means the app cannot be reconciled with the official record.
+2. **A lab is a separate course, not a component.** 11253 (1 cr) and 11206 (3 cr) are separately
+   registered, separately graded, and meet at different times. Modelling the lab as a child of the
+   lecture would fight the registrar's own model for no gain.
+3. **Instructor must be optional and free-text.** Two rows read هـ.ت. (staff/TBA), which is a
+   placeholder, not a name. Already optional in the schema — confirmed correct.
+4. **`location` is free text, not a room number.** One course meets "Online".
+5. **Multiple weekdays sharing one time** — three rows do this. `course_meetings` already stores
+   one row per weekday, so "Sun Tue Thu 10:00–11:00" becomes three rows. Confirmed correct; the
+   course form should accept a day multi-select and expand it, rather than making you add three
+   meetings by hand.
+6. **Arabic text support is now a hard requirement, not a nicety.** Every course name is Arabic,
+   often mixed with Latin ("Blended", "Online") and digits. Consequences:
+   - `dir="auto"` on any element or input rendering user text — course names, task titles, notes.
+     Without it, mixed-direction strings put parentheses and numbers in the wrong place.
+   - Never assume a string's direction from the app's `lang="en"`; per-field `dir="auto"` only.
+   - Times, dates and grades stay LTR and must not inherit RTL from a neighbouring Arabic label.
+   - The system font stack already renders Arabic on Windows and iOS; no webfont needed.
+
+   This is cheap if done in Phase 1 with the task form, and expensive to retrofit across every
+   view later. Moved into Phase 1.
