@@ -167,3 +167,14 @@ export function confirmDelete(what, onYes) {
     onSubmit: onYes,
   });
 }
+
+/**
+ * Lets a detail view name itself in the top bar — the router only knows section
+ * names, but "#/projects/<id>" should read as the project, not "Projects".
+ */
+export function setViewTitle(text) {
+  const node = document.getElementById('view-title');
+  if (!node) return;
+  node.textContent = text;
+  node.setAttribute('dir', 'auto');
+}

@@ -204,8 +204,40 @@ export const tasks = {
     return unwrap(await q);
   },
 
+  async get(id) {
+    const rows = unwrap(await supabase.from('tasks').select('*').eq('id', id));
+    return rows[0] ?? null;
+  },
+
+  /**
+   * Normalises category against the links before writing.
+   *
+   * The database rejects a row whose category disagrees with course_id / project_id, so
+   * a patch touching any one of the three has to be resolved against the row's current
+   * state — otherwise editing a project task's title through a form whose category
+   * selector only offers personal/other would be rejected, or worse, silently strip it
+   * out of its project.
+   */
   async update(id, patch) {
-    return unwrap(await supabase.from('tasks').update(patch).eq('id', id).select());
+    const p = { ...patch };
+
+    if ('project_id' in p || 'course_id' in p || 'category' in p) {
+      const current = await this.get(id);
+      if (!current) throw new Error('That task no longer exists');
+
+      const project_id = 'project_id' in p ? p.project_id : current.project_id;
+      const course_id = 'course_id' in p ? p.course_id : current.course_id;
+
+      p.project_id = project_id;
+      p.course_id = course_id;
+      p.category = categoryFor({
+        category: p.category ?? current.category,
+        course_id,
+        project_id,
+      });
+    }
+
+    return unwrap(await supabase.from('tasks').update(p).eq('id', id).select());
   },
 
   /** completed_at is stamped alongside `done` so "finished today" stays answerable. */
@@ -221,6 +253,59 @@ export const tasks = {
 
   async remove(id) {
     return unwrap(await supabase.from('tasks').delete().eq('id', id));
+  },
+};
+
+/* ---------------- projects ---------------- */
+
+export const projects = {
+  async list({ includeArchived = false } = {}) {
+    let q = supabase.from('projects').select('*').order('created_at', { ascending: false });
+    if (!includeArchived) q = q.eq('archived', false);
+    return unwrap(await q);
+  },
+
+  async get(id) {
+    const rows = unwrap(await supabase.from('projects').select('*').eq('id', id));
+    return rows[0] ?? null;
+  },
+
+  async create({ name, description = null, status = 'active', deadline = null }) {
+    const rows = unwrap(
+      await supabase
+        .from('projects')
+        .insert({ user_id: await uid(), name, description, status, deadline })
+        .select()
+    );
+    return rows[0];
+  },
+
+  async update(id, patch) {
+    return unwrap(await supabase.from('projects').update(patch).eq('id', id).select());
+  },
+
+  /** Cascades to the project's tasks — the UI warns, and offers archive instead. */
+  async remove(id) {
+    return unwrap(await supabase.from('projects').delete().eq('id', id));
+  },
+
+  /**
+   * Task counts for every project in one query, rather than one query per project.
+   * Returns a Map of project_id -> { total, done }.
+   */
+  async taskCounts() {
+    const rows = unwrap(
+      await supabase.from('tasks').select('project_id, done').not('project_id', 'is', null)
+    );
+
+    const counts = new Map();
+    for (const r of rows) {
+      const c = counts.get(r.project_id) ?? { total: 0, done: 0 };
+      c.total++;
+      if (r.done) c.done++;
+      counts.set(r.project_id, c);
+    }
+    return counts;
   },
 };
 

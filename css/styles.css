@@ -738,3 +738,15 @@ a { color: var(--accent); text-decoration: none; }
 .next-why { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .next-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .next-actions .btn { flex: 1; min-width: 92px; min-height: 44px; }
+
+/* ---------- projects ---------- */
+.row-link { color: var(--text); }
+.row-link:hover { background: var(--surface-2); }
+.row-chevron { color: var(--text-dim); font-size: 19px; flex-shrink: 0; }
+.proj-pct {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}

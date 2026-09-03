@@ -74,6 +74,18 @@ create table if not exists public.expenses (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.projects (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  name        text not null check (char_length(name) between 1 and 120),
+  description text,
+  status      text not null default 'active'
+                check (status in ('planning', 'active', 'paused', 'completed')),
+  deadline    date,
+  archived    boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+
 -- One row per user. Created by the app on first load, not seeded here, because a
 -- migration run in the SQL editor has no auth.uid() to attach a row to.
 create table if not exists public.settings (
@@ -121,6 +133,7 @@ create index if not exists tasks_user_due       on public.tasks (user_id, due_da
 create index if not exists tasks_user_open      on public.tasks (user_id, done, due_date);
 create index if not exists tasks_user_project   on public.tasks (user_id, project_id);
 create index if not exists tasks_user_course    on public.tasks (user_id, course_id);
+create index if not exists projects_user_status  on public.projects (user_id, status);
 create index if not exists events_user_date     on public.events (user_id, date);
 create index if not exists expenses_user_date   on public.expenses (user_id, date);
 
@@ -141,12 +154,13 @@ alter table public.tasks     enable row level security;
 alter table public.events    enable row level security;
 alter table public.expenses  enable row level security;
 alter table public.settings  enable row level security;
+alter table public.projects  enable row level security;
 
 do $$
 declare t text;
 begin
   foreach t in array array[
-    'habits', 'habit_logs', 'tasks', 'events', 'expenses', 'settings'
+    'habits', 'habit_logs', 'tasks', 'events', 'expenses', 'settings', 'projects'
   ]
   loop
     execute format('drop policy if exists "own rows select" on public.%I', t);

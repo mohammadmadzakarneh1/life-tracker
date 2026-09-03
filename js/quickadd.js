@@ -44,7 +44,13 @@ const OPTIONS = [
     open: async (refresh) => (await import('./views/habits.js')).habitForm(null, refresh),
   },
   { id: 'coursework', icon: '✦', label: 'University work', hint: 'Assignment, quiz or exam', phase: 4 },
-  { id: 'project', icon: '◆', label: 'Project', hint: 'Something with its own tasks', phase: 3 },
+  {
+    id: 'project',
+    icon: '◆',
+    label: 'Project',
+    hint: 'Something with its own tasks',
+    open: async (refresh) => (await import('./views/projects.js')).projectForm(null, refresh),
+  },
 ];
 
 let sheet = null;

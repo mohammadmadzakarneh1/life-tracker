@@ -11,7 +11,8 @@ const ROUTES = {
   today: { load: () => import('./views/today.js') },
   tasks: { load: () => import('./views/tasks.js') },
   university: { load: () => import('./views/university.js') },
-  projects: { load: () => import('./views/projects.js') },
+  // Params pick the detail view: #/projects is the list, #/projects/<id> is one project.
+  projects: { load: (params) => (params.length ? import('./views/project.js') : import('./views/projects.js')) },
   habits: { load: () => import('./views/habits.js') },
   calendar: { load: () => import('./views/calendar.js') },
   money: { load: () => import('./views/money.js') },
@@ -79,7 +80,7 @@ async function renderRoute() {
   viewEl.append(el('div.empty', {}, [el('div.spinner', { style: 'margin:0 auto' })]));
 
   try {
-    const mod = await ROUTES[name].load();
+    const mod = await ROUTES[name].load(params);
     clear(viewEl);
     currentView = mod;
     // Views take params only if they use them; extra arguments are harmless.
