@@ -126,6 +126,9 @@ function showConfigHelp() {
 /* ---------------- boot ---------------- */
 
 async function main() {
+  // Must run before anything else touches caches or the worker.
+  if (await maybeHardReset()) return;
+
   initTheme();
 
   if (!isConfigured) {
@@ -150,9 +153,54 @@ async function main() {
   session ? showApp() : showAuth();
   boot.hidden = true;
 
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
-  }
+  initServiceWorker();
+}
+
+/**
+ * Registers the service worker and makes updates self-applying.
+ *
+ * Without the controllerchange reload, a device that already had the app installed
+ * keeps running the previously cached code for one more visit after every deploy —
+ * which looked exactly like "my changes aren't appearing".
+ */
+function initServiceWorker() {
+  if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
+
+  navigator.serviceWorker
+    .register('sw.js')
+    .then((reg) => reg.update())
+    .catch(() => { /* offline support is optional; never block the app on it */ });
+
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return; // one reload only, or this loops forever
+    reloaded = true;
+    location.reload();
+  });
+}
+
+/**
+ * Escape hatch for a device stuck on an old cached build: open the app with
+ * ?reset=1 to unregister every worker, delete every cache, and reload clean.
+ * Runs before anything else so it works even if the cached app code is broken.
+ */
+async function maybeHardReset() {
+  if (!new URLSearchParams(location.search).has('reset')) return false;
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch { /* nothing useful to do if the storage APIs refuse */ }
+
+  // Drop the query string so a refresh does not reset again.
+  location.replace(location.pathname + location.hash);
+  return true;
 }
 
 main().catch((err) => {
