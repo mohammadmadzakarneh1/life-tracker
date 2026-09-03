@@ -63,7 +63,7 @@ function draw() {
   const income = sum(rows.filter((r) => r.kind === 'income'));
   const spent = sum(rows.filter((r) => r.kind === 'expense'));
   const net = income - spent;
-  const currency = allRows[0]?.currency ?? rows[0]?.currency ?? 'USD';
+  const currency = allRows[0]?.currency ?? rows[0]?.currency ?? 'JOD';
 
   // Running total across every month — "what I actually have".
   const receivedEver = sum(allRows.filter((r) => r.kind === 'income'));
@@ -223,8 +223,8 @@ function entryForm(existing = null) {
         el('input', {
           name: 'currency',
           maxlength: '3',
-          placeholder: 'USD',
-          value: existing?.currency ?? 'USD',
+          placeholder: 'JOD',
+          value: existing?.currency ?? 'JOD',
         }),
       ]),
     ]),
@@ -266,7 +266,7 @@ function entryForm(existing = null) {
         kind: v.kind,
         category: v.category,
         note: v.note.trim() || null,
-        currency: (v.currency || 'USD').toUpperCase().slice(0, 3),
+        currency: (v.currency || 'JOD').toUpperCase().slice(0, 3),
       };
 
       if (existing) await expenses.update(existing.id, payload);

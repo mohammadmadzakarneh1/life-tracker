@@ -8,7 +8,7 @@
 // Only genuinely static assets (icons) are cache-first. The cache still exists so
 // the app opens offline; it is just no longer allowed to win a race against the
 // network when the network is available.
-const CACHE = 'life-tracker-v6';
+const CACHE = 'life-tracker-v7';
 
 const SHELL = [
   './',
@@ -19,11 +19,17 @@ const SHELL = [
   'js/config.js',
   'js/db.js',
   'js/ui.js',
-  'js/views/dashboard.js',
+  'js/nav.js',
+  'js/strings.js',
+  'js/views/today.js',
   'js/views/tasks.js',
-  'js/views/calendar.js',
+  'js/views/university.js',
+  'js/views/projects.js',
   'js/views/habits.js',
-  'js/views/expenses.js',
+  'js/views/calendar.js',
+  'js/views/money.js',
+  'js/views/progress.js',
+  'js/views/settings.js',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/icon-192.png',

@@ -65,7 +65,7 @@ function draw({ today, from, habitList, logs, taskList, todayEvents, spend }) {
   const income = spend
     .filter((r) => r.kind === 'income')
     .reduce((t, r) => t + Number(r.amount), 0);
-  const currency = spend[0]?.currency ?? 'USD';
+  const currency = spend[0]?.currency ?? 'JOD';
 
   container.append(
     el('p.muted', {

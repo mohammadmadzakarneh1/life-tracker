@@ -51,25 +51,23 @@
   </div>
 </main>
 
-<!-- Signed in -->
+<!-- Signed in. Sidebar above 960px, bottom bar below; both built from one model in js/nav.js -->
 <div id="app" class="app" hidden>
-  <header class="topbar">
-    <h1 class="topbar-title" id="view-title">Today</h1>
-    <div class="topbar-actions">
-      <button class="icon-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">◐</button>
-      <button class="icon-btn" id="sign-out" title="Sign out" aria-label="Sign out">⏻</button>
-    </div>
-  </header>
+  <aside id="sidebar" class="sidebar"></aside>
 
-  <main id="view" class="view" aria-live="polite"></main>
+  <div class="main">
+    <header class="topbar">
+      <h1 class="topbar-title" id="view-title">Today</h1>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">◐</button>
+        <button class="icon-btn" id="sign-out" title="Sign out" aria-label="Sign out">⏻</button>
+      </div>
+    </header>
 
-  <nav class="tabbar" role="navigation">
-    <a href="#/dashboard" class="tabbar-item" data-nav="dashboard"><span class="ico">◎</span><span>Today</span></a>
-    <a href="#/tasks"     class="tabbar-item" data-nav="tasks"><span class="ico">☑</span><span>Tasks</span></a>
-    <a href="#/calendar"  class="tabbar-item" data-nav="calendar"><span class="ico">▦</span><span>Calendar</span></a>
-    <a href="#/habits"    class="tabbar-item" data-nav="habits"><span class="ico">✓</span><span>Habits</span></a>
-    <a href="#/expenses"  class="tabbar-item" data-nav="expenses"><span class="ico">◈</span><span>Money</span></a>
-  </nav>
+    <main id="view" class="view" aria-live="polite"></main>
+  </div>
+
+  <nav id="tabbar" class="tabbar" aria-label="Sections"></nav>
 </div>
 
 <div id="toasts" class="toasts" aria-live="polite"></div>

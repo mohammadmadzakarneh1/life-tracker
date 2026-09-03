@@ -37,13 +37,54 @@ just files.
 
 On your phone, open that URL and use **Add to Home Screen** to install it as an app.
 
+## Working on it
+
+### Tests
+
+Pure logic — dates, ranking, grades, durations — is checked without a browser:
+
+```bash
+node tests/run.js
+```
+
+No dependencies, no framework. `package.json` exists only so Node treats the app's files as ES
+modules; there is still no build step. Only modules without network imports can be tested, which
+is deliberate — it keeps real logic in pure files, away from I/O. `js/db.js` imports supabase-js
+from a CDN and is exercised in the browser instead.
+
+`tests/css.test.js` asserts every class used in markup or JS has a rule in the stylesheet. A real
+regression once deleted the calendar's styles as collateral damage while removing an adjacent
+block, and nothing in the JavaScript failed — the app just rendered wrong.
+
+### Changing the database
+
+1. Write the change into `supabase/schema.sql`. **New columns go in section 2**
+   (`alter table ... add column if not exists`) — never into the `create table` in section 1,
+   which is skipped entirely for a table that already exists.
+2. Add a numbered file under `supabase/migrations/` recording the delta.
+3. Run it in the Supabase SQL editor.
+4. Probe the REST API to confirm the new table or column is really there.
+5. **Then** deploy the code that depends on it. Deploying first leaves the app showing
+   "Could not load ..." until the migration is run.
+
+### Deploying
+
+Push to `main`; GitHub Pages serves it. **Bump `CACHE` in `sw.js` whenever a file changes.** Code
+is fetched network-first with `cache: 'reload'` — GitHub Pages sends `max-age=600`, so without
+that the browser's own HTTP cache serves stale JavaScript for ten minutes. The page also reloads
+once when a new worker takes control, so an update applies on the visit it arrives rather than the
+next one. If a device is ever stuck on an old build, open the app with `?reset=1` to unregister
+workers and clear caches.
+
 ## Project layout
 
 | Path | Role |
 |---|---|
-| `index.html` | App shell: auth screen, tab bar, view container |
-| `css/styles.css` | All styling; light and dark themes via CSS custom properties |
+| `index.html` | App shell: auth screen, sidebar, bottom bar, view container |
+| `css/styles.css` | All styling; light/dark via custom properties, logical properties for future RTL |
 | `js/config.js` | Supabase URL and anon key |
+| `js/strings.js` | All interface text, so an Arabic UI is a second object rather than a rewrite |
+| `js/nav.js` | One nav model rendering the sidebar, bottom bar and More sheet |
 | `js/db.js` | Every database call in the app; views never touch Supabase directly |
 | `js/auth.js` | Sign in / sign up / sign out |
 | `js/ui.js` | DOM builder, date helpers, toasts, modals |

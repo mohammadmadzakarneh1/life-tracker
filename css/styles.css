@@ -198,8 +198,87 @@ a { color: var(--accent); text-decoration: none; }
 }
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 
-/* ---------- app chrome ---------- */
-.app { min-height: 100%; }
+/* ---------- app chrome ----------
+ * Sidebar at >= 960px, bottom bar below. One breakpoint on purpose: a middle tier
+ * with both, or neither, is where responsive layouts go wrong.
+ *
+ * Positioning uses logical properties (inline-start/end rather than left/right) so a
+ * future Arabic RTL build is one dir="rtl" on the root rather than a stylesheet audit.
+ */
+.app {
+  min-height: 100%;
+  display: flex;
+}
+
+.main {
+  flex: 1;
+  min-width: 0; /* lets wide children scroll internally instead of stretching the page */
+}
+
+/* ---- sidebar (desktop) ---- */
+.sidebar {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  width: 240px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 18px 12px;
+  border-inline-end: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidebar-brand {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  padding: 4px 10px 14px;
+}
+
+.sidebar-add {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: start;
+}
+.sidebar-add:hover { filter: brightness(1.06); }
+.sidebar-add .ico { font-size: 15px; }
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 550;
+}
+.sidebar-item:hover { background: var(--surface-2); color: var(--text); }
+.sidebar-item.is-active { background: var(--accent-soft); color: var(--accent); }
+.sidebar-item .ico { font-size: 15px; width: 18px; text-align: center; }
+
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---- top bar ---- */
 .topbar {
   position: sticky;
   top: 0;
@@ -208,7 +287,7 @@ a { color: var(--accent); text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
+  padding-inline: 14px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
@@ -218,15 +297,15 @@ a { color: var(--accent); text-decoration: none; }
 
 .view {
   padding: 16px 14px calc(var(--tabbar-h) + var(--safe-b) + 22px);
-  max-width: 620px;
-  margin: 0 auto;
+  max-width: 900px;
+  margin-inline: auto;
 }
 
+/* ---- bottom bar (mobile) ---- */
 .tabbar {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   z-index: 20;
   height: calc(var(--tabbar-h) + var(--safe-b));
   padding-bottom: var(--safe-b);
@@ -243,9 +322,12 @@ a { color: var(--accent); text-decoration: none; }
   align-items: center;
   justify-content: center;
   gap: 3px;
+  border: 0;
+  background: transparent;
   color: var(--text-dim);
   font-size: 10.5px;
   font-weight: 550;
+  cursor: pointer;
 }
 .tabbar-item span:last-child {
   max-width: 100%;
@@ -255,6 +337,63 @@ a { color: var(--accent); text-decoration: none; }
 }
 .tabbar-item .ico { font-size: 18px; line-height: 1; }
 .tabbar-item.is-active { color: var(--accent); }
+
+.tabbar-add .ico {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 16px;
+}
+
+@media (min-width: 960px) {
+  .sidebar { display: flex; }
+  .tabbar { display: none; }
+  .view { padding-bottom: 40px; }
+}
+
+/* ---- More sheet (mobile) ---- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(10, 12, 20, .5);
+  backdrop-filter: blur(2px);
+  animation: fade .15s;
+}
+.sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 18px 18px 0 0;
+  padding: 10px 12px calc(14px + var(--safe-b));
+  animation: rise .2s cubic-bezier(.2, .8, .3, 1);
+}
+.sheet-handle {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 auto 12px;
+}
+.sheet-nav { display: flex; flex-direction: column; gap: 2px; }
+.sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 550;
+}
+.sheet-item:hover { background: var(--surface-2); }
+.sheet-item.is-active { color: var(--accent); background: var(--accent-soft); }
+.sheet-item .ico { font-size: 16px; width: 20px; text-align: center; }
 
 /* ---------- cards & lists ---------- */
 .card {

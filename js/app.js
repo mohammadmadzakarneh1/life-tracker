@@ -1,16 +1,24 @@
-// Boot, session guard, hash router and chrome wiring.
+// Boot, session guard, hash router, navigation and theme.
 
 import { isConfigured } from './config.js';
 import { getSession, onAuthChange, initAuthScreen, signOut } from './auth.js';
 import { clear, el, toast } from './ui.js';
+import { t } from './strings.js';
+import { NAV, renderSidebar, renderTabbar, setActive, closeMore } from './nav.js';
 
 const ROUTES = {
-  dashboard: { title: 'Today', load: () => import('./views/dashboard.js') },
-  tasks: { title: 'Tasks', load: () => import('./views/tasks.js') },
-  calendar: { title: 'Calendar', load: () => import('./views/calendar.js') },
-  habits: { title: 'Habits', load: () => import('./views/habits.js') },
-  expenses: { title: 'Money', load: () => import('./views/expenses.js') },
+  today: { load: () => import('./views/today.js') },
+  tasks: { load: () => import('./views/tasks.js') },
+  university: { load: () => import('./views/university.js') },
+  projects: { load: () => import('./views/projects.js') },
+  habits: { load: () => import('./views/habits.js') },
+  calendar: { load: () => import('./views/calendar.js') },
+  money: { load: () => import('./views/money.js') },
+  progress: { load: () => import('./views/progress.js') },
+  settings: { load: () => import('./views/settings.js') },
 };
+
+const DEFAULT_ROUTE = 'today';
 
 const boot = document.getElementById('boot');
 const authScreen = document.getElementById('auth-screen');
@@ -45,21 +53,24 @@ function safeSet(k, v) {
 
 /* ---------------- router ---------------- */
 
-function currentRoute() {
-  const name = location.hash.replace(/^#\/?/, '').split('/')[0];
-  return ROUTES[name] ? name : 'dashboard';
+/**
+ * `#/university/abc123` -> { name: 'university', params: ['abc123'] }
+ * Unknown routes fall back to Today rather than erroring.
+ */
+function parseHash() {
+  const segments = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  const name = ROUTES[segments[0]] ? segments[0] : DEFAULT_ROUTE;
+  return { name, params: segments.slice(1) };
 }
 
 async function renderRoute() {
   if (!signedIn) return;
 
-  const name = currentRoute();
-  const route = ROUTES[name];
+  const { name, params } = parseHash();
 
-  document.querySelectorAll('[data-nav]').forEach((a) =>
-    a.classList.toggle('is-active', a.dataset.nav === name)
-  );
-  titleEl.textContent = route.title;
+  setActive(name);
+  titleEl.textContent = t.nav[name];
+  document.title = `${t.nav[name]} · ${t.app}`;
 
   currentView?.destroy?.();
   currentView = null;
@@ -67,10 +78,11 @@ async function renderRoute() {
   viewEl.append(el('div.empty', {}, [el('div.spinner', { style: 'margin:0 auto' })]));
 
   try {
-    const mod = await route.load();
+    const mod = await ROUTES[name].load();
     clear(viewEl);
     currentView = mod;
-    await mod.render(viewEl);
+    // Views take params only if they use them; extra arguments are harmless.
+    await mod.render(viewEl, params);
   } catch (err) {
     clear(viewEl);
     viewEl.append(
@@ -82,12 +94,42 @@ async function renderRoute() {
   }
 }
 
+/* ---------------- keyboard ---------------- */
+
+/**
+ * Desktop shortcuts. Digits jump to a section — cheap, and the reason a laptop user
+ * prefers an app to a website. Ignored while typing.
+ */
+function initKeyboard() {
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!signedIn) return;
+
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (document.activeElement?.isContentEditable) return;
+
+    const n = Number(e.key);
+    if (n >= 1 && n <= NAV.length) {
+      closeMore();
+      location.hash = `#/${NAV[n - 1].id}`;
+      return;
+    }
+
+    if (e.key === 'n') {
+      e.preventDefault();
+      toast(t.soon.quickAdd);
+    }
+  });
+}
+
 /* ---------------- session ---------------- */
 
 function showAuth() {
   signedIn = false;
   currentView?.destroy?.();
   currentView = null;
+  closeMore();
   clear(viewEl);
   app.hidden = true;
   authScreen.hidden = false;
@@ -137,7 +179,10 @@ async function main() {
     return;
   }
 
+  renderSidebar(document.getElementById('sidebar'));
+  renderTabbar(document.getElementById('tabbar'));
   initAuthScreen();
+  initKeyboard();
 
   document.getElementById('sign-out').addEventListener('click', async () => {
     await signOut();

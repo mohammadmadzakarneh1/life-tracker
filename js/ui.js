@@ -30,10 +30,6 @@ export function dateRange(from, to) {
   return out;
 }
 
-export function monthStart(iso = todayISO()) {
-  return iso.slice(0, 8) + '01';
-}
-
 export function prettyDate(iso) {
   const t = todayISO();
   if (iso === t) return 'Today';
@@ -48,7 +44,7 @@ export function prettyDate(iso) {
 
 /* ---------------- formatting ---------------- */
 
-export function money(amount, currency = 'USD') {
+export function money(amount, currency = 'JOD') {
   try {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',

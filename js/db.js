@@ -26,6 +26,49 @@ async function uid() {
   return data.user.id;
 }
 
+/* ---------------- settings ---------------- */
+
+/**
+ * Defaults for a brand-new row. These are personal facts rather than schema defaults:
+ * a migration run in the SQL editor has no auth.uid() to attach a row to, so the row
+ * is created here on first read instead.
+ */
+const SETTINGS_DEFAULTS = {
+  display_name: 'Mohammad',
+  currency: 'JOD',
+  week_start: 0, // Sunday, matching PSUT's week
+  prior_gpa: 64.6,
+  prior_credits: 27,
+  target_gpa: null,
+};
+
+export const settings = {
+  /** Reads the user's settings, creating the row with defaults the first time. */
+  async get() {
+    const rows = unwrap(await supabase.from('settings').select('*').limit(1));
+    if (rows.length) return rows[0];
+
+    const created = unwrap(
+      await supabase
+        .from('settings')
+        .insert({ user_id: await uid(), ...SETTINGS_DEFAULTS })
+        .select()
+    );
+    return created[0];
+  },
+
+  async update(patch) {
+    const rows = unwrap(
+      await supabase
+        .from('settings')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('user_id', await uid())
+        .select()
+    );
+    return rows[0];
+  },
+};
+
 /* ---------------- habits ---------------- */
 
 export const habits = {
@@ -197,7 +240,7 @@ export const expenses = {
     return unwrap(await supabase.from('expenses').select('amount, kind, currency'));
   },
 
-  async create({ date, amount, kind, category, note, currency = 'USD' }) {
+  async create({ date, amount, kind, category, note, currency = 'JOD' }) {
     const rows = unwrap(
       await supabase
         .from('expenses')

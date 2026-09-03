@@ -1,0 +1,9 @@
+{
+  "name": "life-tracker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "comment": "There is no build step and no dependencies. This file exists only so Node treats the app's .js files as ES modules, which lets tests/ import the pure-logic modules directly. GitHub Pages ignores it."
+}
