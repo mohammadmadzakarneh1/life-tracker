@@ -49,6 +49,7 @@ function gridDates(ym) {
 }
 
 async function load() {
+  if (!container) return;
   clear(container).append(loading());
   const dates = gridDates(month);
 
@@ -205,7 +206,7 @@ function dayPanel(today) {
           el('button.icon-btn', {
             text: '⋯',
             title: 'Edit',
-            onclick: () => taskForm(t, selected, load),
+            onclick: () => taskForm(t, { due_date: selected }, load),
           }),
         ]),
       ])
@@ -231,13 +232,14 @@ function dayPanel(today) {
       : el('p.muted', { text: 'Nothing on this day.', style: 'margin:0 0 14px' }),
 
     el('div.modal-actions', { style: 'margin-top:14px' }, [
-      el('button.btn', { text: '+ Task', onclick: () => taskForm(null, selected, load) }),
+      el('button.btn', { text: '+ Task', onclick: () => taskForm(null, { due_date: selected }, load) }),
       el('button.btn.btn-primary', { text: '+ Appointment', onclick: () => eventForm() }),
     ]),
   ]);
 }
 
-function eventForm(existing = null) {
+export function eventForm(existing = null, onSaved = null) {
+  const done = onSaved ?? load;
   const note = el('textarea', { name: 'note', maxlength: '1000', placeholder: 'Optional' });
   note.value = existing?.note ?? '';
 
@@ -289,7 +291,7 @@ function eventForm(existing = null) {
           confirmDelete('this appointment', async () => {
             await events.remove(existing.id);
             toast('Appointment deleted');
-            await load();
+            await done();
           });
         },
       }),
@@ -311,7 +313,7 @@ function eventForm(existing = null) {
       selected = v.date;
       month = v.date.slice(0, 7);
       toast(existing ? 'Appointment updated' : 'Appointment added');
-      await load();
+      await done();
     },
   });
 }

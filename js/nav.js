@@ -4,7 +4,7 @@
 // from NAV below. Hand-writing them separately is how two menus drift apart, and both
 // layouts are primary here — neither is an afterthought.
 
-import { el, clear, toast } from './ui.js';
+import { el, clear } from './ui.js';
 import { t } from './strings.js';
 
 /**
@@ -35,12 +35,21 @@ function link(item, className) {
   ]);
 }
 
-/** Quick Add is wired in the next phase; the button exists now so the layout is final. */
+/**
+ * Quick Add. app.js supplies the handler so the sheet can refresh whichever view is
+ * currently mounted after something is captured — nav.js does not know about routing.
+ */
+let onRequestAdd = () => {};
+
+export function setQuickAddHandler(fn) {
+  onRequestAdd = fn;
+}
+
 function addButton(className) {
   return el(`button.${className}`, {
     type: 'button',
     'aria-label': t.nav.add,
-    onclick: () => toast(t.soon.quickAdd),
+    onclick: () => onRequestAdd(),
   }, [
     el('span.ico', { text: '＋', 'aria-hidden': 'true' }),
     el('span', { text: t.nav.add }),

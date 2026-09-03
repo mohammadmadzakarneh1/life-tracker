@@ -22,6 +22,7 @@ export function destroy() {
 }
 
 async function load() {
+  if (!container) return;
   clear(container).append(loading());
   try {
     const [list, logs] = await Promise.all([
@@ -128,7 +129,8 @@ async function toggle(h, checkEl) {
   }
 }
 
-function habitForm(existing = null) {
+export function habitForm(existing = null, onSaved = null) {
+  const done = onSaved ?? load;
   let icon = existing?.icon ?? ICONS[0];
 
   const iconPicker = el(
@@ -177,7 +179,7 @@ function habitForm(existing = null) {
           confirmDelete('this habit', async () => {
             await habits.remove(existing.id);
             toast('Habit deleted');
-            await load();
+            await done();
           });
         },
       }),
@@ -187,7 +189,7 @@ function habitForm(existing = null) {
       if (existing) await habits.update(existing.id, { name: clean, icon });
       else await habits.create({ name: clean, icon });
       toast(existing ? 'Habit updated' : 'Habit added');
-      await load();
+      await done();
     },
   });
 }

@@ -4,7 +4,8 @@ import { isConfigured } from './config.js';
 import { getSession, onAuthChange, initAuthScreen, signOut } from './auth.js';
 import { clear, el, toast } from './ui.js';
 import { t } from './strings.js';
-import { NAV, renderSidebar, renderTabbar, setActive, closeMore } from './nav.js';
+import { NAV, renderSidebar, renderTabbar, setActive, closeMore, setQuickAddHandler } from './nav.js';
+import { openQuickAdd } from './quickadd.js';
 
 const ROUTES = {
   today: { load: () => import('./views/today.js') },
@@ -94,6 +95,17 @@ async function renderRoute() {
   }
 }
 
+/* ---------------- quick add ---------------- */
+
+/**
+ * Re-renders the current view after a capture, so something added from the Calendar
+ * shows up there immediately rather than after a manual reload.
+ */
+function quickAdd() {
+  closeMore();
+  openQuickAdd(() => renderRoute());
+}
+
 /* ---------------- keyboard ---------------- */
 
 /**
@@ -118,7 +130,7 @@ function initKeyboard() {
 
     if (e.key === 'n') {
       e.preventDefault();
-      toast(t.soon.quickAdd);
+      quickAdd();
     }
   });
 }
@@ -179,6 +191,7 @@ async function main() {
     return;
   }
 
+  setQuickAddHandler(quickAdd);
   renderSidebar(document.getElementById('sidebar'));
   renderTabbar(document.getElementById('tabbar'));
   initAuthScreen();

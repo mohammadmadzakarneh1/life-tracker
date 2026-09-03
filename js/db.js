@@ -129,6 +129,17 @@ export const habitLogs = {
 
 /* ---------------- tasks ---------------- */
 
+/**
+ * A link decides the category, never the other way round. Keeping this in one place is
+ * what stops the app and the database disagreeing about whether something is
+ * university work.
+ */
+export function categoryFor({ category = 'personal', course_id = null, project_id = null }) {
+  if (course_id) return 'university';
+  if (project_id) return 'project';
+  return category === 'university' || category === 'project' ? 'personal' : category;
+}
+
 export const tasks = {
   /** Everything not yet done, plus anything completed recently enough to still be visible. */
   async list() {
@@ -154,14 +165,43 @@ export const tasks = {
     );
   },
 
-  async create({ title, due_date = null, notes = null }) {
+  /**
+   * `category` must agree with course_id / project_id or the database rejects the row —
+   * see the tasks_category_matches_link constraint. Callers pass the link and let
+   * categoryFor() derive the category rather than setting both by hand.
+   */
+  async create({
+    title,
+    due_date = null,
+    due_time = null,
+    priority = 2,
+    category = 'personal',
+    kind = 'task',
+    course_id = null,
+    project_id = null,
+    estimate_min = null,
+    notes = null,
+  }) {
     const rows = unwrap(
       await supabase
         .from('tasks')
-        .insert({ user_id: await uid(), title, due_date, notes })
+        .insert({
+          user_id: await uid(),
+          title, due_date, due_time, priority, kind,
+          category: categoryFor({ category, course_id, project_id }),
+          course_id, project_id, estimate_min, notes,
+        })
         .select()
     );
     return rows[0];
+  },
+
+  /** Open work for one project or course, newest deadline first. */
+  async byLink({ project_id = null, course_id = null } = {}) {
+    let q = supabase.from('tasks').select('*').order('due_date', { ascending: true, nullsFirst: false });
+    if (project_id) q = q.eq('project_id', project_id);
+    if (course_id) q = q.eq('course_id', course_id);
+    return unwrap(await q);
   },
 
   async update(id, patch) {

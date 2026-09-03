@@ -20,6 +20,7 @@ export function destroy() {
 }
 
 async function load() {
+  if (!container) return;
   clear(container).append(loading());
 
   const today = todayISO();

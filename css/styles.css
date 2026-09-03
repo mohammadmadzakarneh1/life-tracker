@@ -129,6 +129,12 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--text-dim);
 }
 .tab.is-active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.tab { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.tab-count {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: .75;
+}
 
 /* ---------- forms ---------- */
 .field { display: block; margin-bottom: 13px; }
@@ -429,6 +435,15 @@ a { color: var(--accent); text-decoration: none; }
   border-bottom: 1px solid var(--border);
 }
 .row:last-child { border-bottom: 0; }
+
+/* Overdue is unmistakable without being alarming: a bar, not a red background. */
+.row.is-overdue {
+  border-inline-start: 3px solid var(--bad);
+  padding-inline-start: 10px;
+  margin-inline-start: -13px;
+}
+
+.row-sep { color: var(--border); margin-inline: 5px; }
 .row-main { flex: 1; min-width: 0; }
 .row-title { font-weight: 550; }
 .row-sub { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
@@ -631,3 +646,39 @@ a { color: var(--accent); text-decoration: none; }
   animation: rise .2s;
 }
 .toast.is-bad { background: var(--bad); color: #fff; }
+
+/* ---------- quick add ---------- */
+.sheet-title {
+  font-size: 13px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-dim);
+  padding: 0 4px 10px;
+}
+
+.qa-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+@media (min-width: 560px) { .qa-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.qa-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 13px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: start;
+  min-height: 44px;
+}
+.qa-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+.qa-item.is-soon { opacity: .55; }
+.qa-ico { font-size: 18px; line-height: 1; margin-bottom: 3px; }
+.qa-label { font-size: 14px; font-weight: 600; }
+.qa-hint { font-size: 11.5px; color: var(--text-dim); line-height: 1.35; }

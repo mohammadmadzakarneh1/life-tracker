@@ -40,6 +40,7 @@ function shiftMonth(ym, delta) {
 }
 
 async function load() {
+  if (!container) return;
   clear(container).append(loading());
   try {
     const [from, to] = bounds(month);
@@ -185,7 +186,8 @@ function entryRow(r) {
   ]);
 }
 
-function entryForm(existing = null) {
+export function entryForm(existing = null, onSaved = null) {
+  const done = onSaved ?? load;
   const kindSel = el('select', { name: 'kind' }, [
     el('option', { value: 'expense', text: 'Money spent', selected: existing?.kind !== 'income' }),
     el('option', { value: 'income', text: 'Money received', selected: existing?.kind === 'income' }),
@@ -252,7 +254,7 @@ function entryForm(existing = null) {
           confirmDelete('this entry', async () => {
             await expenses.remove(existing.id);
             toast('Entry deleted');
-            await load();
+            await done();
           });
         },
       }),
@@ -275,7 +277,7 @@ function entryForm(existing = null) {
       // Jump to the month the entry belongs to, so it is visible after saving.
       month = v.date.slice(0, 7);
       toast(existing ? 'Entry updated' : 'Entry added');
-      await load();
+      await done();
     },
   });
 }

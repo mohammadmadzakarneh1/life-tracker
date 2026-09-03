@@ -95,6 +95,18 @@ create table if not exists public.settings (
 -- column is already present, so this section is safe to re-run forever.
 -- ============================================================
 
+-- tasks: the single source of truth for anything you have to do. A university
+-- assignment, a project task and a personal errand are the same row with different
+-- optional links. See migration 002 for the constraints that keep category honest.
+alter table public.tasks add column if not exists due_time     time;
+alter table public.tasks add column if not exists priority     smallint not null default 2;
+alter table public.tasks add column if not exists category     text not null default 'personal';
+alter table public.tasks add column if not exists kind         text not null default 'task';
+alter table public.tasks add column if not exists estimate_min int;
+-- No foreign key yet: courses and projects arrive in later phases, which add it.
+alter table public.tasks add column if not exists course_id  uuid;
+alter table public.tasks add column if not exists project_id uuid;
+
 -- habits.target_days was written but never read; replaced by a real weekly schedule
 -- in a later phase. Left in place for now so no data is lost.
 alter table public.habits add column if not exists target_days int;
@@ -106,6 +118,9 @@ alter table public.habits add column if not exists target_days int;
 create index if not exists habits_user_idx      on public.habits (user_id);
 create index if not exists habit_logs_user_date on public.habit_logs (user_id, date);
 create index if not exists tasks_user_due       on public.tasks (user_id, due_date);
+create index if not exists tasks_user_open      on public.tasks (user_id, done, due_date);
+create index if not exists tasks_user_project   on public.tasks (user_id, project_id);
+create index if not exists tasks_user_course    on public.tasks (user_id, course_id);
 create index if not exists events_user_date     on public.events (user_id, date);
 create index if not exists expenses_user_date   on public.expenses (user_id, date);
 
