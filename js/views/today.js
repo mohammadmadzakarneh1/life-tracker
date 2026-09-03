@@ -1,14 +1,17 @@
-// Today at a glance, pulled from habits, tasks, appointments and money.
+// Today — the page the app exists for.
+//
+// Ordered by what you do with it, not by data type: what needs attention, the one
+// thing to start, today's list, today's schedule, habits. Statistics are limited to a
+// single progress line, because a wall of numbers is something to read rather than
+// something to act on.
 
-import { habits, habitLogs, tasks, events, expenses } from '../db.js';
-import {
-  el, clear, toast, loading,
-  todayISO, addDays, dateRange, prettyDate, money,
-} from '../ui.js';
-
-const WINDOW = 30; // days of history behind the sparkline
+import { habits, habitLogs, tasks, events, settings } from '../db.js';
+import { rank, nextAction, reasons, bucketOf, PRIORITY } from '../rank.js';
+import { taskForm } from './tasks.js';
+import { el, clear, toast, loading, todayISO } from '../ui.js';
 
 let container = null;
+let state = null;
 
 export async function render(root) {
   container = root;
@@ -19,30 +22,54 @@ export function destroy() {
   container = null;
 }
 
+/* ---------------- deferred suggestions ----------------
+ * "Not now" hides a task from the recommendation for the rest of today only, and
+ * never from the list below. Deferring must not be a way to make something vanish.
+ */
+
+const SKIP_KEY = 'skipped-today';
+
+function readSkipped(today) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SKIP_KEY) ?? '{}');
+    return raw.date === today && Array.isArray(raw.ids) ? raw.ids : [];
+  } catch {
+    return [];
+  }
+}
+
+function skip(id, today) {
+  try {
+    const ids = [...new Set([...readSkipped(today), id])];
+    localStorage.setItem(SKIP_KEY, JSON.stringify({ date: today, ids }));
+  } catch { /* a deferral is not worth a crash */ }
+}
+
+/* ---------------- load ---------------- */
+
 async function load() {
   if (!container) return;
   clear(container).append(loading());
 
   const today = todayISO();
-  const from = addDays(today, -(WINDOW - 1));
 
   try {
-    const [habitList, logs, taskList, todayEvents, spend] = await Promise.all([
+    const [me, habitList, logs, taskList, todayEvents] = await Promise.all([
+      settings.get(),
       habits.list(),
-      habitLogs.range(from, today),
+      habitLogs.range(today, today),
       tasks.list(),
       events.range(today, today),
-      expenses.range(today.slice(0, 8) + '01', today),
     ]);
 
-    // Guard against a view swap while the requests were in flight.
     if (!container) return;
-    draw({ today, from, habitList, logs, taskList, todayEvents, spend });
+    state = { today, me, habitList, logs, taskList, todayEvents };
+    draw();
   } catch (err) {
     if (!container) return;
     clear(container).append(
       el('div.card', {}, [
-        el('h2', { text: 'Could not load your dashboard' }),
+        el('h2', { text: 'Could not load Today' }),
         el('p.muted', { text: err.message, style: 'margin:8px 0 0' }),
         el('button.btn', { text: 'Retry', style: 'margin-top:12px', onclick: load }),
       ])
@@ -50,121 +77,165 @@ async function load() {
   }
 }
 
-function draw({ today, from, habitList, logs, taskList, todayEvents, spend }) {
+/* ---------------- draw ---------------- */
+
+function draw() {
+  const { today, me, habitList, logs, taskList, todayEvents } = state;
   clear(container);
 
-  const doneKeys = new Set(logs.filter((l) => l.done).map((l) => `${l.habit_id}|${l.date}`));
-  const doneToday = habitList.filter((h) => doneKeys.has(`${h.id}|${today}`)).length;
+  const open = taskList.filter((t) => !t.done);
+  const overdue = open.filter((t) => bucketOf(t, today) === 'overdue');
+  const dueToday = open.filter((t) => bucketOf(t, today) === 'today');
+  const actionable = [...overdue, ...dueToday];
 
-  const openTasks = taskList.filter((t) => !t.done);
-  const overdue = openTasks.filter((t) => t.due_date && t.due_date < today);
-  const dueToday = openTasks.filter((t) => t.due_date === today);
-
-  const spent = spend
-    .filter((r) => r.kind === 'expense')
-    .reduce((t, r) => t + Number(r.amount), 0);
-  const income = spend
-    .filter((r) => r.kind === 'income')
-    .reduce((t, r) => t + Number(r.amount), 0);
-  const currency = spend[0]?.currency ?? 'JOD';
-
-  container.append(
-    el('p.muted', {
-      text: greeting() + ' · ' + prettyDate(today),
-      style: 'margin:0 0 14px;font-size:13.5px',
-    }),
-
-    el('div.stat-grid', {}, [
-      stat('Habits', habitList.length ? `${doneToday}/${habitList.length}` : '—',
-        habitList.length ? (doneToday === habitList.length ? 'All done' : 'done today') : 'none yet'),
-      stat('Tasks', String(openTasks.length),
-        overdue.length ? `${overdue.length} overdue` : 'nothing overdue',
-        overdue.length ? 'var(--bad)' : null),
-      stat('Due today', String(dueToday.length), dueToday.length === 1 ? 'task' : 'tasks'),
-      stat('This month', money(income - spent, currency), 'net'),
-    ])
+  const completedToday = taskList.filter(
+    (t) => t.done && String(t.completed_at ?? '').slice(0, 10) === today
   );
 
-  // Today's appointments
+  const doneHabitIds = new Set(logs.filter((l) => l.done).map((l) => l.habit_id));
+  const habitsLeft = habitList.filter((h) => !doneHabitIds.has(h.id));
+
+  container.append(greeting(me, today));
+
+  // Attention line, only when it applies, stated plainly. No exclamation marks.
+  if (overdue.length) {
+    container.append(
+      el('div.attention', {}, [
+        el('span', {
+          text: overdue.length === 1
+            ? '1 task needs your attention'
+            : `${overdue.length} tasks need your attention`,
+        }),
+        el('a', { href: '#/tasks', text: 'View' }),
+      ])
+    );
+  }
+
+  container.append(progressLine(actionable, completedToday, habitList, doneHabitIds));
+
+  // The one recommendation.
+  const suggestion = nextAction(taskList, today, readSkipped(today));
+  if (suggestion) container.append(nextActionCard(suggestion, today));
+
+  // Today's tasks, in the same order the recommendation uses — never reorderable to
+  // put comfortable work on top.
+  if (actionable.length) {
+    container.append(
+      el('div.section-title', { text: "Today's tasks" }),
+      el('div.card', {}, rank(actionable, today).map((t) => taskRow(t, today)))
+    );
+  } else if (!suggestion && taskList.length) {
+    container.append(
+      el('div.card', {}, [el('p', { text: '✓ Nothing due today.', style: 'margin:0' })])
+    );
+  }
+
+  // Schedule. University classes join this in phase 4.
   if (todayEvents.length) {
     container.append(
-      el('div.section-title', { text: 'Today' }),
-      el('div.card', {}, todayEvents.map((e) =>
-        el('div.row', {}, [
-          el('span.cal-time', { text: e.time ? e.time.slice(0, 5) : 'All day' }),
-          el('div.row-main', {}, [
-            el('div.row-title', { text: e.title }),
-            e.note && el('div.row-sub', { text: e.note }),
-          ]),
-        ])
-      ))
+      el('div.section-title', { text: "Today's schedule" }),
+      el('div.card', {}, todayEvents.map(eventRow))
     );
   }
 
-  // Tasks needing attention: overdue first, then due today
-  const attention = [...overdue, ...dueToday];
-  if (attention.length) {
-    container.append(
-      el('div.section-title', { text: 'Needs doing' }),
-      el('div.card', {}, attention.map((t) => taskRow(t, today)))
-    );
-  }
-
-  // Habits still open today
   if (habitList.length) {
-    const remaining = habitList.filter((h) => !doneKeys.has(`${h.id}|${today}`));
     container.append(
       el('div.section-title', { text: 'Habits' }),
-      el('div.card', {}, remaining.length
-        ? remaining.map((h) => habitRow(h, today, doneKeys))
-        : [el('p', { text: '✓ Everything done today. Nice.', style: 'margin:0' })])
-    );
-
-    // 30-day habit completion trend
-    const days = dateRange(from, today);
-    const values = days.map(
-      (d) => habitList.filter((h) => doneKeys.has(`${h.id}|${d}`)).length / habitList.length
-    );
-    container.append(
-      el('div.section-title', { text: `Last ${WINDOW} days` }),
-      el('div.card', {}, [
-        el('div.spark', {}, values.map((v) =>
-          el(`div.spark-bar${v === 0 ? '.is-empty' : ''}`, {
-            style: `height:${Math.max(4, v * 100)}%`,
-            title: `${Math.round(v * 100)}%`,
-          })
-        )),
-        el('div.row-sub', {
-          text: `${Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100)}% average completion`,
-          style: 'margin-top:9px',
-        }),
-      ])
+      el('div.card', {}, habitsLeft.length
+        ? habitsLeft.map((h) => habitRow(h, today))
+        : [el('p', { text: '✓ All habits done today.', style: 'margin:0' })])
     );
   }
 
-  if (!habitList.length && !taskList.length && !todayEvents.length && !spend.length) {
-    container.append(
-      el('div.card', {}, [
-        el('h2', { text: 'Welcome 👋' }),
-        el('p.muted', {
-          style: 'margin:9px 0 14px;font-size:13.5px',
-          text: 'Nothing logged yet. Start with a habit or a task — the other tabs work the same way.',
-        }),
-        el('a.btn.btn-primary', { href: '#/habits', text: 'Add your first habit' }),
-      ])
-    );
+  if (!taskList.length && !habitList.length && !todayEvents.length) {
+    container.append(welcome());
   }
 }
 
-function stat(label, value, sub, color) {
-  return el('div.stat', {}, [
-    el('div.stat-label', { text: label }),
-    el('div.stat-value', { text: value, style: color ? `color:${color}` : '' }),
-    el('div.stat-sub', { text: sub }),
+function greeting(me, today) {
+  const h = new Date().getHours();
+  const part =
+    h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const name = me?.display_name?.trim();
+
+  return el('div.greeting', {}, [
+    el('h2.greeting-title', { text: name ? `${part}, ${name}` : part, dir: 'auto' }),
+    el('div.greeting-date', { text: longDate(today) }),
+  ]);
+}
+
+function longDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+/** One line and one bar. Deliberately not a chart. */
+function progressLine(actionable, completedToday, habitList, doneHabitIds) {
+  const habitsDone = habitList.filter((h) => doneHabitIds.has(h.id)).length;
+
+  const units = actionable.length + completedToday.length + habitList.length;
+  const done = completedToday.length + habitsDone;
+  const pct = units ? Math.round((done / units) * 100) : 0;
+
+  const parts = [`${actionable.length} remaining`];
+  if (completedToday.length) parts.push(`${completedToday.length} done`);
+  if (habitList.length) parts.push(`${habitsDone}/${habitList.length} habits`);
+
+  return el('div.card', {}, [
+    el('div.today-progress-head', {}, [
+      el('span.stat-label', { text: 'Today' }),
+      el('span.today-pct', { text: `${pct}%` }),
+    ]),
+    el('div.bar', {}, [el('div.bar-fill', { style: `width:${pct}%` })]),
+    el('div.row-sub', { text: parts.join(' · '), style: 'margin-top:8px' }),
+  ]);
+}
+
+/**
+ * The recommendation. It always shows why it was chosen — that is what makes it
+ * trustworthy rather than magic — and "Not now" exists so it cannot become a nag.
+ *
+ * [Start] arrives with time tracking in phase 6; a button that only apologised for
+ * not working yet would be worse than its absence.
+ */
+function nextActionCard(task, today) {
+  const chips = reasons(task, today);
+
+  return el('div.card.next-action', {}, [
+    el('div.stat-label', { text: 'Next action' }),
+    el('div.next-title', { text: task.title, dir: 'auto' }),
+    chips.length && el('div.next-why', {}, chips.map((c) =>
+      el(`span.pill${c.includes('overdue') ? '.pill-bad' : ''}`, { text: c })
+    )),
+    el('div.next-actions', {}, [
+      el('button.btn.btn-primary', {
+        text: 'Done',
+        onclick: async () => {
+          try {
+            await tasks.setDone(task.id, true);
+            toast('Done');
+            await load();
+          } catch (err) {
+            toast(err.message, 'bad');
+          }
+        },
+      }),
+      el('button.btn', { text: 'Edit', onclick: () => taskForm(task, {}, load) }),
+      el('button.btn', {
+        text: 'Not now',
+        onclick: () => { skip(task.id, today); draw(); },
+      }),
+    ]),
   ]);
 }
 
 function taskRow(t, today) {
+  const late = t.due_date && t.due_date < today;
+
   const check = el('button.check', {
     type: 'button',
     text: '✓',
@@ -181,20 +252,37 @@ function taskRow(t, today) {
     },
   });
 
-  const late = t.due_date && t.due_date < today;
-  return el('div.row', {}, [
+  const meta = [];
+  if (t.priority === PRIORITY.HIGH) meta.push('High');
+  if (late) meta.push('Overdue');
+  else if (t.due_time) meta.push(t.due_time.slice(0, 5));
+  if (t.estimate_min) {
+    meta.push(t.estimate_min < 60 ? `${t.estimate_min}m` : `${Math.round(t.estimate_min / 60)}h`);
+  }
+
+  return el(`div.row${late ? '.is-overdue' : ''}`, {}, [
     check,
     el('div.row-main', {}, [
-      el('div.row-title', { text: t.title }),
-      el('div.row-sub', {
-        text: late ? 'Overdue' : 'Due today',
+      el('div.row-title', { text: t.title, dir: 'auto' }),
+      meta.length && el('div.row-sub', {
+        text: meta.join(' · '),
         style: late ? 'color:var(--bad)' : '',
       }),
     ]),
   ]);
 }
 
-function habitRow(h, today, doneKeys) {
+function eventRow(e) {
+  return el('div.row', {}, [
+    el('span.cal-time', { text: e.time ? e.time.slice(0, 5) : 'All day' }),
+    el('div.row-main', {}, [
+      el('div.row-title', { text: e.title, dir: 'auto' }),
+      e.note && el('div.row-sub', { text: e.note, dir: 'auto' }),
+    ]),
+  ]);
+}
+
+function habitRow(h, today) {
   const check = el('button.check', {
     type: 'button',
     text: '✓',
@@ -203,7 +291,6 @@ function habitRow(h, today, doneKeys) {
       check.classList.add('is-done');
       try {
         await habitLogs.set(h.id, today, true);
-        doneKeys.add(`${h.id}|${today}`);
         await load();
       } catch (err) {
         check.classList.remove('is-done');
@@ -214,14 +301,17 @@ function habitRow(h, today, doneKeys) {
 
   return el('div.row', {}, [
     check,
-    el('div.row-main', {}, [el('div.row-title', { text: `${h.icon} ${h.name}` })]),
+    el('div.row-main', {}, [el('div.row-title', { text: `${h.icon} ${h.name}`, dir: 'auto' })]),
   ]);
 }
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 5) return 'Late night';
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
+function welcome() {
+  return el('div.card', {}, [
+    el('h2', { text: 'Welcome 👋' }),
+    el('p.muted', {
+      style: 'margin:9px 0 14px;font-size:13.5px',
+      text: 'Nothing here yet. Add a task and this page will tell you what to start with.',
+    }),
+    el('button.btn.btn-primary', { text: '+ Add a task', onclick: () => taskForm(null, {}, load) }),
+  ]);
 }

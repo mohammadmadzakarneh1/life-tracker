@@ -682,3 +682,59 @@ a { color: var(--accent); text-decoration: none; }
 .qa-ico { font-size: 18px; line-height: 1; margin-bottom: 3px; }
 .qa-label { font-size: 14px; font-weight: 600; }
 .qa-hint { font-size: 11.5px; color: var(--text-dim); line-height: 1.35; }
+
+/* ---------- today ---------- */
+.greeting { margin-bottom: 14px; }
+.greeting-title { font-size: 20px; letter-spacing: -.02em; }
+.greeting-date { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+
+/* Calm, not alarming: overdue work is stated, not shouted. */
+.attention {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bad) 25%, transparent);
+  color: var(--bad);
+  font-size: 13.5px;
+  font-weight: 550;
+}
+.attention a { color: var(--bad); font-weight: 650; text-decoration: underline; }
+
+.today-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+.today-pct { font-size: 19px; font-weight: 680; letter-spacing: -.02em; }
+
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width .25s ease;
+}
+
+/* The recommendation is the only element on the page allowed to draw the eye. */
+.next-action { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.next-title {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+  margin: 5px 0 9px;
+  line-height: 1.3;
+}
+.next-why { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.next-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.next-actions .btn { flex: 1; min-width: 92px; min-height: 44px; }
