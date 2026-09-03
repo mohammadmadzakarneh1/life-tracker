@@ -205,8 +205,12 @@ A university assignment *is* a task. A project task *is* a task. There is no sec
 ### 6.3 New tables
 
 ```
-terms            id, user_id, name, start_date, end_date,
+terms            id, user_id, name,
+                 classes_start date, classes_end date,   -- 04/10/26 .. 14/01/27
+                 exams_start   date, exams_end   date,   -- 16/01/27 .. 30/01/27
                  status ('active'|'completed'), created_at
+term_breaks      id, user_id, term_id → terms, name,
+                 start_date, end_date                    -- single day: start = end
 courses          id, user_id, term_id → terms, name, code, instructor, location,
                  color, credits numeric,
                  completed boolean default false,
@@ -236,6 +240,16 @@ Notes on deliberate choices:
 - **`terms` exists because class schedules need an end.** Without a term, a Sunday 10:00 lecture
   repeats into 2035 on the calendar. It also scopes grades to a semester. The spec did not mention
   terms; the calendar cannot be correct without them.
+- **A term has four dates, not two.** PSUT's calendar makes this concrete: classes run
+  4 Oct – 14 Jan, then finals run 16 – 30 Jan. Weekly class blocks must stop on 14 January, while
+  the *term* continues to 30 January for grades and GPA. Collapsing these into one `end_date`
+  would either draw three phantom weeks of lectures through the exam period or close the term
+  before its finals are graded.
+- **`term_breaks` exists because the calendar has holes.** Winter break (25–31 Dec), Christmas
+  Day, New Year's Day. A weekly Sunday lecture must not render on a day the university is shut,
+  and a break is not a weekday exception — it is a date range that suppresses *all* class
+  occurrences inside it. Single-day holidays are the degenerate case where `start_date =
+  end_date`, so one table covers both.
 - **`course_meetings` is a weekly pattern, not stored occurrences.** The calendar expands it for
   the visible range only. No RRULE, no recurrence engine.
 - **`time_sessions` denormalises `category`/`course_id`/`project_id` at start time** so deleting a
@@ -497,11 +511,19 @@ One calendar, five sources, all read-only projections except appointments:
 
 | Source | Shown as |
 |---|---|
-| `course_meetings` expanded over the term | Class blocks with times |
+| `course_meetings` expanded over `classes_start … classes_end`, minus `term_breaks` | Class blocks with times |
 | `tasks` where `kind` in (exam, quiz) | Exam markers |
 | `tasks.due_date` (assignments, project, personal) | Deadline dots |
 | `projects.deadline` | Deadline dots |
 | `events` | Appointments |
+| `terms` exam windows + `term_breaks` | Background bands on the month/week grid |
+
+The expansion rule is one pure function — `occurrencesFor(meeting, term, breaks, from, to)` — and
+it is unit-tested, because "why is there a lecture on Christmas Day?" is exactly the class of bug
+that survives manual checking.
+
+Exam windows and breaks render as tinted bands rather than entries: during 28 Nov – 12 Dec the
+month view should *look* like midterm season without a single row being added.
 
 **Month** (existing grid, extended to five dot colours with a legend) and **Week** (time-gridded
 columns — the view that actually answers "when am I in class?").
@@ -688,9 +710,9 @@ README.md             architecture, migration workflow, test instructions
    `settings.week_start` defaults to Sunday rather than Monday.
 5. **Money ordering** — Phase 8 is late. Move it earlier if you're tracking spending now.
 6. **Deleting versus archiving** — courses and projects accumulate. Archive is assumed; confirm.
-7. **When does the semester actually begin?** PSUT's public calendar says 4 October 2026, but the
-   registration below was described as "next week's schedule". Those disagree, and the term start
-   bounds every class block on the calendar. Which is right?
+7. ~~**When does the semester actually begin?**~~ — **answered by the official calendar:
+   Sunday 4 October 2026.** Full dates in Appendix B. The phase order stays as planned; there is
+   about a month before classes start.
 
 ---
 
@@ -736,3 +758,51 @@ today?" is different on a Wednesday.
 
    This is cheap if done in Phase 1 with the task form, and expensive to retrofit across every
    view later. Moved into Phase 1.
+
+---
+
+## Appendix B — First Semester 2026/2027, from PSUT's official calendar
+
+Seed data for the term created in Phase 3. Source: PSUT Academic Calendar 2026/2027.
+
+| Field | Value |
+|---|---|
+| Name | First Semester (Fall 2026) |
+| `classes_start` | 2026-10-04 (Sun) |
+| `classes_end` | 2027-01-14 (Thu) |
+| `exams_start` | 2027-01-16 (Sat) |
+| `exams_end` | 2027-01-30 (Sat, approximate — calendar says "to ~30/01") |
+
+`term_breaks`
+
+| Name | From | To |
+|---|---|---|
+| Winter break | 2026-12-25 | 2026-12-31 |
+| New Year's Day | 2027-01-01 | 2027-01-01 |
+
+Christmas Day (25/12) falls inside the winter break, so it needs no separate row.
+
+**Dates worth knowing but deliberately not modelled as rows** — these are university-wide
+administrative milestones, not things you act on daily. They belong in a small static reference
+on the University page, not in the calendar's data model:
+
+| Date | Event |
+|---|---|
+| 2026-09-28 | Deadline to register for the 1st semester |
+| 2026-09-29 → 30 | Add/drop period |
+| 2026-11-10 | First exams begin |
+| 2026-11-28 → 12-12 | **Midterm exams** |
+| 2026-12-15 | Second exams begin |
+| 2027-01-12 | **Deadline to withdraw from courses** |
+| 2027-02-02 | Deadline for submitting final results |
+
+The withdrawal deadline (12 Jan) is the one with real consequences — it is the last day a course
+going badly can be dropped. Worth a single line on the University page as it approaches, not a
+notification.
+
+### Next term, for reference
+
+Second Semester (Spring 2027): registration deadline 07/02, classes begin **14/02/2027**, classes
+end 31/05, finals 01/06 → ~15/06. Eid Al-Fitr ~09–12/03 and Eid Al-Adha ~16/05 are breaks, and
+Palm Sunday (25/04) plus Easter (02/05, two days) are holidays for Christian students. Not seeded
+now — entered at rollover, which is exactly the two-minute flow in §10.2.
