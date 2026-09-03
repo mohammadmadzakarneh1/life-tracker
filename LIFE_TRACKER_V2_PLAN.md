@@ -205,9 +205,13 @@ A university assignment *is* a task. A project task *is* a task. There is no sec
 ### 6.3 New tables
 
 ```
-terms            id, user_id, name, start_date, end_date, is_current
+terms            id, user_id, name, start_date, end_date,
+                 status ('active'|'completed'), created_at
 courses          id, user_id, term_id → terms, name, code, instructor, location,
-                 color, credits, archived, created_at
+                 color, credits numeric,
+                 completed boolean default false,
+                 final_percent numeric null,   -- frozen when the term closes
+                 archived, created_at
 course_meetings  id, user_id, course_id → courses, weekday 0..6, start_time, end_time, location
 assessments      id, user_id, course_id → courses, name,
                  kind ('midterm'|'quiz'|'assignment'|'final'|'other'),
@@ -220,7 +224,10 @@ time_sessions    id, user_id, task_id → tasks null, category, course_id null, 
 budgets          id, user_id, month text 'YYYY-MM', amount numeric, currency,
                  unique (user_id, month)
 settings         user_id pk, display_name, currency default 'JOD', week_start smallint,
-                 theme, updated_at
+                 theme,
+                 prior_gpa numeric,      -- cumulative % before Life Tracker (64.6)
+                 prior_credits numeric,  -- credit hours that average covers
+                 updated_at
 ```
 
 Notes on deliberate choices:
@@ -373,9 +380,57 @@ a grade you will not trust.
 
 No study-topic or chapter tracking, per the spec.
 
-**Deliberately deferred: GPA.** It needs credits, a grading scale, and letter-grade cutoffs that
-vary by university. `courses.credits` is in the schema so it stays possible. Worth confirming
-whether you want it before building it (see section 21).
+### 10.1 GPA — percentage scale, credit-weighted
+
+Your GPA is **64.6 on a 100-point scale**, so no letter grades or 4.0 conversion are involved.
+That makes this simple arithmetic rather than a university-specific rules engine.
+
+**Semester average** — credit-weighted mean of this term's course percentages:
+
+```
+Σ(course_percent × credits) ÷ Σ(credits)
+```
+
+**Cumulative GPA** — carried forward from a baseline you enter once in Settings
+(`prior_gpa = 64.6`, `prior_credits = <hours that average covers>`):
+
+```
+(prior_gpa × prior_credits + Σ(course_percent × credits))
+ ÷ (prior_credits + Σ(credits))
+```
+
+Only **completed** courses count. Courses in progress feed a separate, clearly labelled
+**projected GPA** using their current grades — that is the number worth seeing mid-semester,
+because it is the one you can still change. Both figures show their inputs in a "how is this
+calculated?" disclosure; a GPA you cannot check is one you will not trust.
+
+### 10.2 Editing it every semester
+
+The rollover is a deliberate, roughly two-minute job about three times a year — not something the
+app tries to guess.
+
+**Settings → Academic → Start new semester**
+
+1. Name, start date, end date. The previous term is marked `completed`.
+2. Each course in the closing term has its computed grade **frozen into `final_percent`**, and is
+   marked `completed`. This is why history stays stable: editing an old assessment later cannot
+   silently rewrite a GPA you already banked. Any course you didn't finish can be excluded.
+3. Add this semester's courses: name, code, credits, instructor, colour.
+4. Add each course's weekly meetings — weekday, start/end time, room.
+
+Courses are **not** copied forward, because they change every semester. There is a *Duplicate
+course* action for a retake or a continuing course, which copies the name, code, credits and
+meeting pattern but no assessments.
+
+**Nothing is destroyed by a rollover.** Past terms remain browsable read-only, with their courses,
+assessments and final grades — which is what makes Progress able to compare semesters later.
+
+**Mid-semester edits** stay available without any ceremony: add or drop a course, change a
+meeting time when the timetable shifts, add assessments as they are graded. Only the once-a-term
+setup is a flow; everything else is ordinary editing.
+
+**Prompting.** When a term's `end_date` passes, Today shows a single quiet line — *"First Semester
+2026/2027 has ended. Close it out?"* — dismissible, shown once. No repeated nagging.
 
 ---
 
@@ -580,15 +635,17 @@ README.md             architecture, migration workflow, test instructions
 
 ## 21. Open questions
 
-1. **GPA** — worth building, or are per-course grades enough? It needs your university's scale and
-   letter cutoffs. `courses.credits` is reserved either way.
+1. **Prior credit hours** — GPA is answered (§10.1: 100-point scale, credit-weighted, baseline
+   64.6). The one missing input is **how many credit hours that 64.6 covers**, without which the
+   cumulative figure cannot be carried forward. Everything else about GPA is settled.
 2. **Recurring tasks** — weekly labs and readings are the obvious case. Deferred deliberately;
    recurrence is where task apps get complicated. Do you want it, and can it wait past Phase 11?
 3. **Notifications are excluded, but forgetting is your problem #1.** As specified, the app helps
    only when you open it. The honest options are a daily habit of opening it, or an opt-in browser
    notification later. Not building it — flagging that the spec's exclusion works against its own
    stated goal.
-4. **Term dates** — needed before class schedules can render. Do you have your current semester's
-   start and end dates?
+4. **Semester end date** — start date is **4 October 2026**. The end date is still needed, since
+   it is what stops weekly class blocks repeating forever on the calendar. A rough date is fine;
+   it is editable.
 5. **Money ordering** — Phase 8 is late. Move it earlier if you're tracking spending now.
 6. **Deleting versus archiving** — courses and projects accumulate. Archive is assumed; confirm.
