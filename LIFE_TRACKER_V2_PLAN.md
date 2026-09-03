@@ -806,3 +806,62 @@ Second Semester (Spring 2027): registration deadline 07/02, classes begin **14/0
 end 31/05, finals 01/06 → ~15/06. Eid Al-Fitr ~09–12/03 and Eid Al-Adha ~16/05 are breaks, and
 Palm Sunday (25/04) plus Easter (02/05, two days) are holidays for Christian students. Not seeded
 now — entered at rollover, which is exactly the two-minute flow in §10.2.
+
+---
+
+## Appendix C — Personal constraints, and what they change
+
+Three answers that alter the build, recorded because they are not recoverable from the code.
+
+### C.1 English UI now, Arabic possible later
+
+Not "English forever". Two cheap decisions now keep the door open, both of which are expensive to
+retrofit across nine views:
+
+1. **All UI strings live in one module** (`js/strings.js`) rather than inline in views. A future
+   Arabic UI becomes a second file, not a rewrite. Views read `t.tasks.overdue`, never a literal.
+2. **CSS uses logical properties** — `margin-inline-start`, `padding-inline`, `border-inline-end`,
+   `text-align: start` — instead of `left`/`right`. An RTL flip then costs one `dir="rtl"` on the
+   root rather than auditing 500 lines of stylesheet.
+
+Content direction is separate and already decided: `dir="auto"` per field on anything rendering
+user text, since course names mix Arabic, Latin and digits (Appendix A).
+
+### C.2 Both phone and laptop are primary
+
+Neither layout is an afterthought, which changes how the nav shell is built in Phase 0: the
+sidebar and the bottom bar are two presentations of **one** navigation model, not two hand-written
+menus that drift apart. Practically:
+
+- One `NAV` array drives sidebar, bottom bar and the More sheet.
+- Every view is checked at 375px and 1440px before its phase closes, not in a Phase 11 catch-up.
+- Keyboard support on desktop is not optional: `n` for quick add, `1`–`5` for the main sections,
+  `Esc` to close. Cheap, and the reason a laptop user prefers a real app to a website.
+
+### C.3 The failure mode is avoidance, not forgetting to start
+
+> *"I do easy tasks and avoid the hard one."*
+
+This is the single most useful thing said about this app, and it invalidates a default that most
+productivity tools ship with: **there must be no "quick wins" affordance anywhere.** No "sort by
+shortest", no "2-minute tasks" section, no completion-count celebration. Every one of those feeds
+the actual problem while looking like a feature.
+
+What it means concretely:
+
+1. **Next Action ranking must not be gameable by triviality.** Priority and deadline dominate; a
+   five-minute errand cannot outrank a midterm. The scoring in §8 already does this, and the
+   `estimate_min` field is deliberately **not** an input to it — duration informs planning, never
+   ranking.
+2. **Skip count is visible.** "Not now" is allowed once per task per day, and the card shows
+   *"skipped 3 times"* when it applies. Not a scold — just the fact, which is what makes it work.
+   The task cannot be quietly buried by repeated deferral.
+3. **`[Start]` starts a timer immediately.** Beginning is one tap; stopping is a deliberate act.
+   The commitment device is the lowest-friction path to the hard thing.
+4. **Today's task list is ordered by the same ranking as Next Action**, not by creation date and
+   not by anything the user can reorder to put comfortable work on top.
+5. **Progress counts what was hard.** "23 tasks completed" is satisfying and useless if they were
+   all trivial. Progress reports university work and focused hours alongside raw counts, so the
+   week cannot look productive on volume alone.
+
+This constraint outranks visual polish. If a design choice makes avoidance easier, it loses.
