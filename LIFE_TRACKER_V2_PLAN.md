@@ -644,8 +644,13 @@ README.md             architecture, migration workflow, test instructions
    only when you open it. The honest options are a daily habit of opening it, or an opt-in browser
    notification later. Not building it — flagging that the spec's exclusion works against its own
    stated goal.
-4. **Semester end date** — start date is **4 October 2026**. The end date is still needed, since
-   it is what stops weekly class blocks repeating forever on the calendar. A rough date is fine;
-   it is editable.
+4. **Semester end date** — the start is confirmed: **Sunday 4 October 2026**, per PSUT's public
+   academic calendar, which lists "1st Semester Classes Begin — October 4, Sunday". PSUT does not
+   publish the semester end date there. The rollover form will therefore **default the end to
+   ~22 January 2027** (16 teaching weeks) and leave it editable, so the calendar has a bound
+   without waiting on an exact date. Correct it when your timetable confirms finals.
+
+   Side note: PSUT's week begins on Sunday, which matches the calendar grid already built — so
+   `settings.week_start` defaults to Sunday rather than Monday.
 5. **Money ordering** — Phase 8 is late. Move it earlier if you're tracking spending now.
 6. **Deleting versus archiving** — courses and projects accumulate. Archive is assumed; confirm.
